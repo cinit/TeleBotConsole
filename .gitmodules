@@ -1,6 +1,6 @@
 [submodule "src/main/cpp/external/MMKV"]
-	path = src/main/cpp/external/MMKV
+	path = libs/mmkv/src/main/cpp/MMKV
 	url = https://github.com/Tencent/MMKV
 [submodule "src/main/cpp/external/td"]
-	path = src/main/cpp/external/td
+	path = core/src/main/cpp/external/td
 	url = https://github.com/tdlib/td.git
