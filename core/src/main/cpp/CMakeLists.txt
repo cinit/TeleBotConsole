@@ -31,7 +31,7 @@ add_subdirectory(external/td)
 
 add_library(tdjni SHARED
 
-        src/jni_core/TDLibJniBridge.cpp
+        src/jni_core/TDLibJniBridge.cpp src/jni_core/Console.cpp src/jni_core/LogImpl.cpp
 
         src/utils/ProcessUtils.cpp src/utils/TextUtils.cpp src/utils/SharedBuffer.cpp src/utils/FileMemMap.cpp
         src/utils/auto_close_fd.cpp src/utils/io_utils.cpp src/utils/Uuid.cpp src/utils/shared_memory.cpp
@@ -44,10 +44,12 @@ add_library(tdjni SHARED
 include_directories(libs/MMKV/Core)
 
 include_directories(src)
+# TDLib generated headers
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/external/td)
 
 set_target_properties(tdjni PROPERTIES
         CXX_EXTENSIONS OFF
         POSITION_INDEPENDENT_CODE ON
         )
 
-target_link_libraries(tdjni c mmkv memprof tdcore tdnet tdutils tdclient)
+target_link_libraries(tdjni c mmkv memprof tdjson_static tdcore tdnet tdutils tdclient)
