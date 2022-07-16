@@ -1,0 +1,19 @@
+# Configeration file for bot accounts
+
+[accounts]
+# Whether to shut down the server when the bot login fails
+fail_on_login_error = true
+# Whether allowed to interactively prompt for userbot 2-FA password and SMS code in console
+allow_interactive_login = true
+
+# Stand bot accounts
+# In order to use a bot account, only a token is required.
+# Bot token looks like this: "1234567890:AAwwR9Xodb4YqXiHAZ5mjs6embrxuTINxOA"
+[[accounts.bot]]
+bot_token = "YOUR_BOT_TOKEN"
+
+# Userbot is alse supported, but not recommended.
+# In order to use a userbot account, you need to login interactively for the first time.
+# WARNING: USING USERBOT ACCOUNTS MAY RESULT IN BANNING YOUR ACCOUNT
+#[[accounts.userbot]]
+#user_phone = "+1 1234567890"

@@ -1,0 +1,8 @@
+# Config file for robot server.
+# You need to change the api_id and api_hash to your own.
+# For bot accounts, see file bots.toml
+
+[server]
+api_id = 0
+api_hash = "xxx"
+use_test_dc = false
