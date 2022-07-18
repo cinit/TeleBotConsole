@@ -2,7 +2,7 @@
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "NeoAuth2TgBot"
+rootProject.name = "TeleBotConsole"
 
 include(
     ":core",
