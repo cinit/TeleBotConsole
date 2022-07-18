@@ -1,5 +1,5 @@
 # Config file for robot server.
-# You need to change the api_id and api_hash to your own.
+# You MUST obtain your own api_id and api_hash at https://my.telegram.org
 # For bot accounts, see file bots.toml
 
 [server]
