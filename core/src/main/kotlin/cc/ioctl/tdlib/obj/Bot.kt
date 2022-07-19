@@ -16,7 +16,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.io.IOException
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration.Companion.milliseconds
 
 class Bot internal constructor(
     val server: RobotServer,
@@ -198,11 +198,17 @@ class Bot internal constructor(
         if (languageCode.isNotEmpty()) {
             user.languageCode = languageCode
         }
+        if (uid > 0 && uid == this.userId) {
+            this.firstName = firstName
+            this.lastName = lastName.ifEmpty { null }
+            this.phoneNumber = phoneNumber.ifEmpty { null }
+            this.username = username.ifEmpty { null }
+        }
         return true
     }
 
     private fun handleUpdateDeleteMessages(event: String): Boolean {
-        val deleteMessages = JsonParser.parseString(event).asJsonObject.getAsJsonObject("delete_messages")
+        val deleteMessages = JsonParser.parseString(event).asJsonObject
         val chatId = deleteMessages.get("chat_id").asLong
         val messageIds = deleteMessages.get("message_ids").asJsonArray.map { it.asLong }
         for (listener in mOnRecvMsgListeners) {
@@ -396,11 +402,9 @@ class Bot internal constructor(
     }
 
     private fun notifyAuthorizationResult(isSuccess: Boolean, errorMsg: String?) {
-        try {
-            mAuthStateCondition.signalAll()
-        } catch (ise: IllegalStateException) {
-            // nobody is waiting for authorization result
-        }
+        Log.d(TAG, "notifyAuthorizationResult: $isSuccess, $errorMsg")
+        server.onBotAuthenticationStatusChanged(this)
+        mAuthStateCondition.signalAll()
     }
 
     private suspend fun sendTdLibParameters() {
@@ -453,7 +457,8 @@ class Bot internal constructor(
             }
         }
         // wait for response
-        mAuthStateCondition.await(30L.seconds)
+        val ret = mAuthStateCondition.await(server.defaultTimeout.toLong().milliseconds)
+        Log.d(TAG, "await result: $ret")
         return if (mAuthState == AuthState.AUTHORIZED) userId else 0L
     }
 

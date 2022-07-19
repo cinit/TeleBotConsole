@@ -69,7 +69,7 @@ class Condition(val mutex: Mutex) {
      * Wakes up one coroutine blocked in await()
      */
     fun signal(owner: Any? = null) {
-        ensureLocked(owner, "notify")
+        ensureUnlocked(owner, "notify")
         val it = waiting.iterator()
         if (it.hasNext()) {
             val waiter = it.next()
@@ -82,7 +82,7 @@ class Condition(val mutex: Mutex) {
      * Wakes up all coroutines blocked in await()
      */
     fun signalAll(owner: Any? = null) {
-        ensureLocked(owner, "notifyAll")
+        ensureUnlocked(owner, "notifyAll")
         val it = waiting.iterator()
         while (it.hasNext()) {
             val waiter = it.next()
@@ -95,6 +95,13 @@ class Condition(val mutex: Mutex) {
         val isLocked = if (owner == null) mutex.isLocked else mutex.holdsLock(owner)
         if (!isLocked) {
             throw IllegalStateException("${funcName} requires a locked mutex")
+        }
+    }
+
+    internal fun ensureUnlocked(owner: Any?, funcName: String) {
+        val isLocked = mutex.isLocked
+        if (isLocked) {
+            throw IllegalStateException("${funcName} requires an unlocked mutex")
         }
     }
 }

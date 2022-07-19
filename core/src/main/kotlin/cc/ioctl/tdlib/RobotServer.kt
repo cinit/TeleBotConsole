@@ -25,7 +25,7 @@ class RobotServer private constructor(val baseDir: File) {
 
     var proxy: String? = null
     val isRunning: Boolean get() = !mShuttingDown
-    var defaultTimeout: Int = 30 * 1000
+    var defaultTimeout: Int = 90 * 1000
     val cachedObjectPool: NonLocalObjectCachePool = NonLocalObjectCachePool(this)
     val executor: ExecutorService = Executors.newCachedThreadPool()
 
@@ -105,6 +105,35 @@ class RobotServer private constructor(val baseDir: File) {
         }
         synchronized(mLock) {
             return mLocalBots[mLocalBotUidMaps[userId] ?: return null]
+        }
+    }
+
+    val allBots: List<Bot>
+        get() {
+            val bots = ArrayList<Bot>()
+            synchronized(mLock) {
+                mLocalBots.values.forEach { bots.add(it) }
+            }
+            return bots
+        }
+
+    val allAuthenticatedBots: List<Bot>
+        get() {
+            synchronized(mLock) {
+                return mLocalBots.values.filter { it.isAuthenticated }
+            }
+        }
+
+    fun onBotAuthenticationStatusChanged(bot: Bot) {
+        synchronized(mLock) {
+            val userId = bot.userId
+            val isAuthenticated = bot.isAuthenticated && userId > 0L
+            if (isAuthenticated) {
+                mLocalBotUidMaps[userId] = bot.clientIndex
+            } else {
+                // remove the bot from the cache
+                mLocalBotUidMaps.remove(userId)
+            }
         }
     }
 
