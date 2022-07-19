@@ -11,6 +11,7 @@
 
 #include "../jni/cc_ioctl_intern_NativeBridge.h"
 #include "../jni/cc_ioctl_cli_Console.h"
+#include "../jni/cc_ioctl_util_OsUtils.h"
 
 #include <MMKV.h>
 
@@ -119,6 +120,17 @@ Java_cc_ioctl_intern_NativeBridge_nativeInit
         }
         Log::logBuffer(lv, "MMKV", msg.c_str());
     });
+}
+
+/*
+ * Class:     cc_ioctl_util_OsUtils
+ * Method:    getPid
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL
+Java_cc_ioctl_util_OsUtils_getPid
+        (JNIEnv *env, jclass) {
+    return (jint) TEMP_FAILURE_RETRY(getpid());
 }
 
 /*

@@ -96,6 +96,7 @@ public class StartupRoutine {
             }
             System.load(nativeLib.getAbsolutePath());
         }
+        System.out.println("Process ID: " + OsUtils.getPid());
         NativeBridge.nativeInit(workingDir.getAbsolutePath());
         // initialize mmkv
         File mmkvDir = new File(workingDir, "mmkv");
