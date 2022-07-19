@@ -2,7 +2,7 @@ package cc.ioctl.tgbot.plugin
 
 import cc.ioctl.tdlib.RobotServer
 
-abstract class BasePlugin : IPlugin {
+abstract class PluginBase : IPlugin {
 
     override val server: RobotServer get() = RobotServer.instance
 

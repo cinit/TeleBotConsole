@@ -22,10 +22,13 @@ object ServerInit {
         IoUtils.mkdirsOrThrow(configDir)
         val serverConfigFile = File(configDir, "server.toml")
         val botsConfigFile = File(configDir, "bots.toml")
+        val pluginsConfigFile = File(configDir, "plugins.toml")
         extractFileIfNotExists(serverConfigFile, "config")
         extractFileIfNotExists(botsConfigFile, "config")
+        extractFileIfNotExists(pluginsConfigFile, "config")
         val serverConfig = Toml().read(serverConfigFile.readText())
         val botsConfig = Toml().read(botsConfigFile.readText())
+        val pluginsConfig = Toml().read(pluginsConfigFile.readText())
         // configure TDLib
         val apiId: Int = serverConfig.getLong("server.api_id").toInt()
             .verifyConfigOrFatal("server.api_id", botsConfigFile, "api_id must be positive") { it > 0 }
@@ -60,6 +63,8 @@ object ServerInit {
             exitProcess(1)
         }
         server.start(apiId, apiHash, useTestDC)
+        // register plugins
+        PluginManager.registerPluginsFromConfig(pluginsConfig)
         // load plugins
         PluginManager.loadRegisterPlugins()
         for (phoneNumber in userBotPhones) {

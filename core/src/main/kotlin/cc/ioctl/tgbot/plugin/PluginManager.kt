@@ -1,6 +1,8 @@
 package cc.ioctl.tgbot.plugin
 
 import cc.ioctl.util.Log
+import com.moandjiezana.toml.Toml
+import java.io.File
 import java.io.IOError
 
 object PluginManager {
@@ -9,7 +11,8 @@ object PluginManager {
 
     data class PluginInfo(
         var name: String,
-        var mainClass: String
+        var mainClass: String,
+        var path: File?
     )
 
     private val mLock = Any()
@@ -17,9 +20,51 @@ object PluginManager {
     private val mLoadedPlugins = HashMap<String, IPlugin>()
 
     @JvmStatic
-    fun registerPlugin(name: String, mainClass: String) {
-        Log.d(TAG, "registerPlugin: $name, $mainClass")
-        synchronized(mLock) { mRegisteredPlugins.put(name, PluginInfo(name, mainClass)) }
+    fun registerBundledPlugin(name: String, mainClass: String) {
+        Log.d(TAG, "registerBundledPlugin: $name, $mainClass")
+        synchronized(mLock) { mRegisteredPlugins.put(name, PluginInfo(name, mainClass, null)) }
+    }
+
+    fun registerPluginsFromConfig(config: Toml) {
+        val allowUnpackedPlugins = config.getBoolean("plugin.allow_unpacked_plugins", false)
+        val types: Array<String> = if (allowUnpackedPlugins) {
+            arrayOf("bundled", "jar", "unpacked")
+        } else {
+            arrayOf("bundled", "jar")
+        }
+        synchronized(mLock) {
+            types.forEach { type ->
+                config.getTables("plugin.$type")?.forEach { item ->
+                    val pluginInfo = parsePlugin(type, item)
+                    if (pluginInfo != null) {
+                        mRegisteredPlugins[pluginInfo.name] = pluginInfo
+                    }
+                }
+            }
+        }
+    }
+
+    private fun parsePlugin(type: String, item: Toml): PluginInfo? {
+        try {
+            val enabled = item.getBoolean("enabled", true)
+            if (!enabled) {
+                return null
+            }
+            when (type) {
+                "bundled" -> {
+                    val name = item.getString("name")
+                    val entry = item.getString("entry")
+                    return PluginInfo(name, entry, null)
+                }
+                else -> {
+                    Log.e(TAG, "parsePlugin: unknown type $type")
+                    return null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Unable to parse plugin", e)
+            return null
+        }
     }
 
     internal fun loadRegisterPlugins() {

@@ -1,0 +1,18 @@
+# The plugin config file.
+# Path is relative to the 'plugins' directory.
+
+[plugin]
+# Whether allowed to load unpathed plugins (for development).
+allow_unpacked_plugins = false
+
+#[[plugin.bundled]]
+#name = "Plugin Name"
+#entry = "com.example.PluginClass"
+# Set enabled to false to disable a plugin from being loaded(default value: true).
+#enabled = false
+
+#[[plugin.jar]]
+#path = "test.jar"
+
+#[[plugin.unpacked]]
+#path = "path/to/unpacked/plugin/dir"
