@@ -3,6 +3,8 @@
 //
 
 #include <ctime>
+#include <malloc.h>
+#include <cstring>
 
 #include "LogImpl.h"
 #include "Console.h"

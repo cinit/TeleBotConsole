@@ -17,6 +17,7 @@
 
 #include "Console.h"
 #include "utils/log/Log.h"
+#include "utils/text/EncodingHelper.h"
 #include "LogImpl.h"
 
 #include <td/telegram/td_json_client.h>
@@ -52,9 +53,10 @@ static std::string getJstringToUtf8(JNIEnv *env, jstring jstr) {
         return "";
     }
     int len = env->GetStringLength(jstr);
-    std::string str(len, 0);
-    env->GetStringUTFRegion(jstr, 0, len, &str[0]);
-    return str;
+    std::u16string str16;
+    str16.resize(len);
+    env->GetStringRegion(jstr, 0, len, (jchar *) str16.data());
+    return swgui::EncodingHelper::toString8(str16);
 }
 
 EXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {

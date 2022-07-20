@@ -6,10 +6,8 @@
 #ifndef RPCPROTOCOL_LOG_H
 #define RPCPROTOCOL_LOG_H
 
-#include <cstdarg>
-#include <cstdio>
-#include <cstring>
-#include <malloc.h>
+static_assert(sizeof(char) == 1, "char is not 1 byte");
+static_assert(sizeof(char16_t) == 2, "char16_t is not 2 bytes");
 
 class Log {
 public:
@@ -26,31 +24,7 @@ public:
 private:
     static volatile LogHandler mHandler;
 public:
-    static void format(Level level, const char *tag, const char *fmt, ...)
-    __attribute__ ((__format__ (__printf__, 3, 4))) {
-        va_list varg1;
-        va_list varg2;
-        LogHandler h = mHandler;
-        if (h == nullptr || fmt == nullptr) {
-            return;
-        }
-        va_start(varg1, fmt);
-        va_copy(varg2, varg1);
-        int size = vsnprintf(nullptr, 0, fmt, varg1) + 4;
-        va_end(varg1);
-        if (size <= 0) {
-            return;
-        }
-        void *buffer = malloc(size);
-        if (buffer == nullptr) {
-            return;
-        }
-        va_start(varg2, fmt);
-        vsnprintf((char *) buffer, size, fmt, varg2);
-        va_end(varg2);
-        h(level, tag, static_cast<const char *>(buffer));
-        free(buffer);
-    }
+    static void format(Level level, const char *tag, const char *fmt, ...) __attribute__ ((__format__ (__printf__, 3, 4)));
 
     static void logBuffer(Level level, const char *tag, const char *msg) {
         LogHandler h = mHandler;

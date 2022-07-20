@@ -35,7 +35,7 @@ add_library(tdjni SHARED
 
         src/utils/ProcessUtils.cpp src/utils/TextUtils.cpp src/utils/SharedBuffer.cpp src/utils/FileMemMap.cpp
         src/utils/auto_close_fd.cpp src/utils/io_utils.cpp src/utils/Uuid.cpp src/utils/shared_memory.cpp
-        src/utils/file_utils.cpp src/utils/CachedThreadPool.cpp src/utils/SyncUtils.cpp
+        src/utils/file_utils.cpp src/utils/CachedThreadPool.cpp src/utils/SyncUtils.cpp src/utils/text/EncodingHelper.cpp
 
         src/utils/log/Log.cpp
         src/utils/config/ConfigManager.cpp)
