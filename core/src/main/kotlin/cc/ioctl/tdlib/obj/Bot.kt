@@ -51,6 +51,7 @@ class Bot internal constructor(
     private val mListenerLock = Any()
 
     private val mOnRecvMsgListeners = HashSet<EventHandler.MessageListenerV1>(1)
+    private val mCallbackQueryListeners = HashSet<EventHandler.CallbackQueryListenerV1>(1)
 
     private var mDefaultLogOnlyErrorHandler = object : TransactionDispatcher.TransactionCallbackV1 {
         override fun onEvent(event: String, bot: Bot?, type: String): Boolean {
@@ -141,6 +142,9 @@ class Bot internal constructor(
             "updateMessageSendSucceeded" -> {
                 handleUpdateMessageSendSucceeded(event)
             }
+            "updateNewCallbackQuery" -> {
+                handleUpdateNewCallbackQuery(event)
+            }
             "updateSelectedBackground",
             "updateFileDownloads",
             "updateChatThemes",
@@ -217,6 +221,25 @@ class Bot internal constructor(
         val messageIds = deleteMessages.get("message_ids").asJsonArray.map { it.asLong }
         for (listener in mOnRecvMsgListeners) {
             listener.onDeleteMessages(this, chatId, messageIds)
+        }
+        return true
+    }
+
+    private fun handleUpdateNewCallbackQuery(event: String): Boolean {
+        val callbackQuery = JsonParser.parseString(event).asJsonObject
+        val chatId = callbackQuery.get("chat_id").asLong
+        val senderId = callbackQuery.get("sender_user_id").asLong
+        val queryId = callbackQuery.get("id").asString
+        val msgId = callbackQuery.get("message_id").asLong
+        // call listeners
+        var handled = false
+        for (listener in mCallbackQueryListeners) {
+            if (listener.onCallbackQuery(this, callbackQuery, queryId, chatId, senderId, msgId)) {
+                handled = true
+            }
+        }
+        if (!handled) {
+            Log.w(TAG, "A callback query $queryId in chat $chatId, sender $senderId was not handled")
         }
         return true
     }
@@ -512,6 +535,18 @@ class Bot internal constructor(
         }
     }
 
+    fun registerCallbackQueryListener(listener: EventHandler.CallbackQueryListenerV1) {
+        synchronized(mListenerLock) {
+            mCallbackQueryListeners.add(listener)
+        }
+    }
+
+    fun unregisterCallbackQueryListener(listener: EventHandler.CallbackQueryListenerV1) {
+        synchronized(mListenerLock) {
+            mCallbackQueryListeners.remove(listener)
+        }
+    }
+
     private suspend fun executeRequestWaitExpectSuccess(request: String, timeout: Int): Boolean {
         val result = executeRequest(request, timeout)
         if (result == null) {
@@ -590,6 +625,28 @@ class Bot internal constructor(
         }
         val resp = executeRequest(request.toString(), timeout)
         return if (resp == null) null else JsonParser.parseString(resp).asJsonObject
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun answerCallbackQuery(
+        queryId: String, text: String?, showAlert: Boolean,
+        url: String? = null, cacheTime: Int = 0
+    ) {
+        val request = JsonObject().apply {
+            addProperty("@type", "answerCallbackQuery")
+            addProperty("callback_query_id", queryId)
+            addProperty("text", text)
+            addProperty("show_alert", showAlert)
+            addProperty("url", url)
+            addProperty("cache_time", cacheTime)
+        }
+        val result = executeRequest(request.toString(), server.defaultTimeout)
+        if (result == null) {
+            throw IOException("Timeout")
+        } else {
+            val obj = JsonParser.parseString(result).asJsonObject
+            TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+        }
     }
 
     private suspend fun executeRequest(request: String, timeout: Int): String? {

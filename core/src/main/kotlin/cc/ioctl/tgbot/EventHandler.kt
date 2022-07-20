@@ -10,4 +10,15 @@ object EventHandler {
         fun onDeleteMessages(bot: Bot, chatId: Long, msgIds: List<Long>): Boolean
     }
 
+    interface CallbackQueryListenerV1 {
+        fun onCallbackQuery(
+            bot: Bot,
+            query: JsonObject,
+            queryId: String,
+            chatId: Long,
+            senderId: Long,
+            msgId: Long
+        ): Boolean
+    }
+
 }
