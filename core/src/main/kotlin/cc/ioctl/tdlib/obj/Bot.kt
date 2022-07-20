@@ -530,7 +530,7 @@ class Bot internal constructor(
     suspend fun sendMessageRaw(
         chatId: Long, inputMessageContent: JsonObject,
         replyMarkup: ReplyMarkup? = null
-    ): String {
+    ): JsonObject {
         JsonObject().apply {
             addProperty("@type", "sendMessage")
             addProperty("chat_id", chatId)
@@ -541,8 +541,9 @@ class Bot internal constructor(
             if (result == null) {
                 throw IOException("Timeout")
             } else {
-                TlRpcJsonObject.throwRemoteApiExceptionIfError(result)
-                return result
+                val obj = JsonParser.parseString(result).asJsonObject
+                TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+                return obj
             }
         }
     }
@@ -552,7 +553,7 @@ class Bot internal constructor(
         chatId: Long, text: String,
         replyMarkup: ReplyMarkup? = null,
         disableWebPreview: Boolean = false
-    ): String {
+    ): JsonObject {
         return sendMessageForText(chatId, FormattedText.forPlainText(text), replyMarkup, disableWebPreview)
     }
 
@@ -561,7 +562,7 @@ class Bot internal constructor(
         chatId: Long, textMsg: FormattedText,
         replyMarkup: ReplyMarkup? = null,
         disableWebPreview: Boolean = false
-    ): String {
+    ): JsonObject {
         val msgObj = JsonObject().apply {
             addProperty("@type", "inputMessageText")
             add("text", textMsg.toJsonObject())
