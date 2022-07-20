@@ -35,13 +35,16 @@ public abstract class ReplyMarkup extends TlRpcJsonObject {
                 public static class Callback extends Type {
                     @TlRpcField("@type")
                     public static final String TYPE = "inlineKeyboardButtonTypeCallback";
+                    /**
+                     * The base64-encoded data of the callback button.
+                     */
                     @TlRpcField("data")
                     public String data;
 
                     public Callback() {
                     }
 
-                    public Callback(String data) {
+                    public Callback(@NotNull String data) {
                         this.data = data;
                     }
                 }
@@ -49,13 +52,16 @@ public abstract class ReplyMarkup extends TlRpcJsonObject {
                 public static class CallbackWithPassword extends Type {
                     @TlRpcField("@type")
                     public static final String TYPE = "inlineKeyboardButtonTypeCallbackWithPassword";
+                    /**
+                     * The base64-encoded data of the callback button.
+                     */
                     @TlRpcField("data")
                     public String data;
 
                     public CallbackWithPassword() {
                     }
 
-                    public CallbackWithPassword(String data) {
+                    public CallbackWithPassword(@NotNull String data) {
                         this.data = data;
                     }
                 }
@@ -108,8 +114,18 @@ public abstract class ReplyMarkup extends TlRpcJsonObject {
 
             @TlRpcField("@type")
             public static final String TYPE = "inlineKeyboardButton";
+            @TlRpcField("text")
+            public String text;
             @TlRpcField("type")
             public Type type;
+
+            public Button() {
+            }
+
+            public Button(String text, Type type) {
+                this.text = text;
+                this.type = type;
+            }
         }
 
         @TlRpcField("@type")
