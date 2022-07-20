@@ -1,16 +1,17 @@
 package cc.ioctl.tdlib.tlrpc;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Objects;
 
-public abstract class TlRpcJsonObject implements Serializable, Cloneable {
+public abstract class TlRpcJsonObject implements Cloneable {
 
     @NotNull
     public JsonObject toJsonObject() {
@@ -33,35 +34,115 @@ public abstract class TlRpcJsonObject implements Serializable, Cloneable {
                 }
                 Class<?> type = f.getType();
                 if (type.isPrimitive()) {
-                    if (type == int.class) {
-                        result.addProperty(fieldName, (int) value);
-                    } else if (type == long.class) {
-                        result.addProperty(fieldName, (long) value);
-                    } else if (type == boolean.class) {
-                        result.addProperty(fieldName, (boolean) value);
-                    } else if (type == double.class) {
-                        result.addProperty(fieldName, (double) value);
-                    } else if (type == float.class) {
-                        result.addProperty(fieldName, (float) value);
-                    } else if (type == short.class) {
-                        result.addProperty(fieldName, (short) value);
-                    } else if (type == byte.class) {
-                        result.addProperty(fieldName, (byte) value);
-                    } else if (type == char.class) {
-                        result.addProperty(fieldName, (char) value);
-                    } else {
-                        throw new AssertionError("Unknown primitive type: " + type);
-                    }
+                    addJsonObjectPrimitive(result, fieldName, type, value);
                 } else if (type == String.class) {
                     result.addProperty(fieldName, (String) value);
                 } else if (TlRpcJsonObject.class.isAssignableFrom(type)) {
                     result.add(fieldName, ((TlRpcJsonObject) value).toJsonObject());
+                } else if (JsonElement.class.isAssignableFrom(type)) {
+                    result.add(fieldName, (JsonElement) value);
+                } else if (type.isArray()) {
+                    if (value == null) {
+                        result.add(fieldName, null);
+                    } else {
+                        result.add(fieldName, serializeJsonArray(type, value));
+                    }
                 } else {
                     throw new AssertionError("Unknown type: " + type);
                 }
             }
         }
         return result;
+    }
+
+    protected static void addJsonObjectPrimitive(@NotNull JsonObject owner, @NotNull String name, @NotNull Class<?> type, @NotNull Object value) {
+        if (type == int.class) {
+            owner.addProperty(name, (int) value);
+        } else if (type == long.class) {
+            owner.addProperty(name, (long) value);
+        } else if (type == boolean.class) {
+            owner.addProperty(name, (boolean) value);
+        } else if (type == double.class) {
+            owner.addProperty(name, (double) value);
+        } else if (type == float.class) {
+            owner.addProperty(name, (float) value);
+        } else if (type == short.class) {
+            owner.addProperty(name, (short) value);
+        } else if (type == byte.class) {
+            owner.addProperty(name, (byte) value);
+        } else if (type == char.class) {
+            owner.addProperty(name, (char) value);
+        } else {
+            throw new AssertionError("Unknown primitive type: " + type);
+        }
+    }
+
+    protected static void addJsonArrayPrimitive(@NotNull JsonArray owner, @NotNull Class<?> type, @NotNull Object value) {
+        if (type == int.class) {
+            owner.add((int) value);
+        } else if (type == long.class) {
+            owner.add((long) value);
+        } else if (type == boolean.class) {
+            owner.add((boolean) value);
+        } else if (type == double.class) {
+            owner.add((double) value);
+        } else if (type == float.class) {
+            owner.add((float) value);
+        } else if (type == short.class) {
+            owner.add((short) value);
+        } else if (type == byte.class) {
+            owner.add((byte) value);
+        } else if (type == char.class) {
+            owner.add((char) value);
+        } else {
+            throw new AssertionError("Unknown primitive type: " + type);
+        }
+    }
+
+    protected static JsonArray serializeJsonArray(@NotNull Class<?> type, @Nullable Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (!type.isArray()) {
+            throw new IllegalArgumentException("Not an array: " + type);
+        }
+        if (!type.isInstance(value)) {
+            throw new IllegalArgumentException("Not an array of type: " + type);
+        }
+        Class<?> componentType = type.getComponentType();
+        if (componentType.isArray()) {
+            JsonArray result = new JsonArray();
+            for (Object o : (Object[]) value) {
+                result.add(serializeJsonArray(componentType, o));
+            }
+            return result;
+        } else if (componentType.isPrimitive()) {
+            JsonArray result = new JsonArray();
+            for (Object o : (Object[]) value) {
+                addJsonArrayPrimitive(result, componentType, o);
+            }
+            return result;
+        } else if (componentType == String.class) {
+            JsonArray result = new JsonArray();
+            for (Object o : (Object[]) value) {
+                result.add((String) o);
+            }
+            return result;
+        } else if (JsonElement.class.isAssignableFrom(componentType)) {
+            JsonArray result = new JsonArray();
+            for (Object o : (Object[]) value) {
+                result.add((JsonElement) o);
+            }
+            return result;
+        } else if (TlRpcJsonObject.class.isAssignableFrom(componentType)) {
+            JsonArray result = new JsonArray();
+            for (Object o : (Object[]) value) {
+                result.add(((TlRpcJsonObject) o).toJsonObject());
+            }
+            return result;
+        } else {
+            throw new AssertionError("Unknown type: " + componentType);
+        }
     }
 
     @NotNull

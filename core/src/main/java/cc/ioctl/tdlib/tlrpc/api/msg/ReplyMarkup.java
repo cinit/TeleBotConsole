@@ -124,23 +124,6 @@ public abstract class ReplyMarkup extends TlRpcJsonObject {
         public InlineKeyboard(Button[][] rows) {
             this.rows = rows;
         }
-
-        @NotNull
-        @Override
-        public JsonObject toJsonObject() {
-            JsonObject jsonObject = new JsonObject();
-            jsonObject.addProperty("@type", TYPE);
-            JsonArray rowsJsonArray = new JsonArray();
-            for (Button[] row : rows) {
-                JsonArray rowJsonArray = new JsonArray();
-                for (Button button : row) {
-                    rowJsonArray.add(button.toJsonObject());
-                }
-                rowsJsonArray.add(rowJsonArray);
-            }
-            jsonObject.add("rows", rowsJsonArray);
-            return jsonObject;
-        }
     }
 
     public static class RemoveKeyboard extends ReplyMarkup {
