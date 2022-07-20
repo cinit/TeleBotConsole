@@ -3,6 +3,7 @@ package cc.ioctl.tdlib.obj
 import cc.ioctl.tdlib.RobotServer
 import cc.ioctl.tdlib.tlrpc.RemoteApiException
 import cc.ioctl.tdlib.tlrpc.TlRpcJsonObject
+import cc.ioctl.tdlib.tlrpc.api.msg.FormattedText
 import cc.ioctl.tdlib.tlrpc.api.msg.ReplyMarkup
 import cc.ioctl.tgbot.EventHandler
 import cc.ioctl.tgbot.TransactionDispatcher
@@ -137,6 +138,9 @@ class Bot internal constructor(
             "updateDeleteMessages" -> {
                 handleUpdateDeleteMessages(event)
             }
+            "updateMessageSendSucceeded" -> {
+                handleUpdateMessageSendSucceeded(event)
+            }
             "updateSelectedBackground",
             "updateFileDownloads",
             "updateChatThemes",
@@ -217,6 +221,17 @@ class Bot internal constructor(
         return true
     }
 
+    private fun handleUpdateMessageSendSucceeded(event: String): Boolean {
+        val update = JsonParser.parseString(event).asJsonObject
+        val msg = update.getAsJsonObject("message")
+        val msgId = msg.get("id").asLong
+        val senderId = getSenderId(msg.getAsJsonObject("sender_id"))
+        val chatId = msg.get("chat_id").asLong
+        val oldMsgId = update.get("old_message_id").asLong
+        Log.d(TAG, "handleUpdateMessageSendSucceeded: $msgId, $senderId, $chatId, $oldMsgId")
+        return true
+    }
+
     private fun handleUpdateNewMessage(event: String): Boolean {
         val obj = JsonParser.parseString(event).asJsonObject.getAsJsonObject("message")
         val msgId = obj.get("id").asLong
@@ -225,26 +240,26 @@ class Bot internal constructor(
         if (isOutgoing) {
             return true
         }
-        val senderImpl = obj["sender_id"].asJsonObject
-        val senderType = senderImpl.get("@type").asString
-        val senderId: Long
-        when (senderType) {
-            "messageSenderUser" -> {
-                senderId = senderImpl.get("user_id").asLong
-            }
-            "messageSenderChat" -> {
-                senderId = senderImpl.get("chat_id").asLong
-            }
-            else -> {
-                Log.e(TAG, "handleUpdateNewMessage: unexpected sender type: $senderType")
-                return false
-            }
-        }
+        val senderId = getSenderId(obj["sender_id"].asJsonObject)
         // call listeners
         for (listener in mOnRecvMsgListeners) {
             listener.onReceiveMessage(this, chatId, senderId, obj)
         }
         return true
+    }
+
+    private fun getSenderId(obj: JsonObject): Long {
+        return when (val type = obj.get("@type").asString) {
+            "messageSenderUser" -> {
+                obj.get("user_id").asLong
+            }
+            "messageSenderChat" -> {
+                obj.get("chat_id").asLong
+            }
+            else -> {
+                throw IllegalArgumentException("unexpected sender type: $type")
+            }
+        }
     }
 
     private fun handleUpdateNewChat(event: String): Boolean {
@@ -348,7 +363,6 @@ class Bot internal constructor(
                             } else if (type == "ok") {
                                 Log.d(TAG, "setAuthenticationPhoneNumber: ok: $result")
                                 mAuthState = AuthState.WAIT_CODE
-                                notifyAuthorizationResult(true, null)
                             } else {
                                 Log.e(TAG, "Unexpected result setting authentication phone number: $result")
                                 mAuthState = AuthState.INVALID_CREDENTIALS
@@ -516,7 +530,7 @@ class Bot internal constructor(
     suspend fun sendMessageRaw(
         chatId: Long, inputMessageContent: JsonObject,
         replyMarkup: ReplyMarkup? = null
-    ) {
+    ): String {
         JsonObject().apply {
             addProperty("@type", "sendMessage")
             addProperty("chat_id", chatId)
@@ -528,38 +542,33 @@ class Bot internal constructor(
                 throw IOException("Timeout")
             } else {
                 TlRpcJsonObject.throwRemoteApiExceptionIfError(result)
+                return result
             }
         }
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun sendMessageForText(
-        chatId: Long, plainText: String,
+        chatId: Long, text: String,
         replyMarkup: ReplyMarkup? = null,
         disableWebPreview: Boolean = false
-    ) {
-        JsonObject().apply {
-            addProperty("@type", "sendMessage")
-            addProperty("chat_id", chatId)
-            add("input_message_content", JsonObject().apply {
-                addProperty("@type", "inputMessageText")
-                add("text", JsonObject().apply {
-                    addProperty("@type", "formattedText")
-                    addProperty("text", plainText)
-                    add("entities", JsonArray())
-                })
-                addProperty("disable_web_page_preview", disableWebPreview)
-                addProperty("clear_draft", false)
-            })
-            add("reply_markup", replyMarkup?.toJsonObject())
-        }.let {
-            val result = executeRequest(it.toString(), server.defaultTimeout)
-            if (result == null) {
-                throw IOException("Timeout")
-            } else {
-                TlRpcJsonObject.throwRemoteApiExceptionIfError(result)
-            }
+    ): String {
+        return sendMessageForText(chatId, FormattedText.forPlainText(text), replyMarkup, disableWebPreview)
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun sendMessageForText(
+        chatId: Long, textMsg: FormattedText,
+        replyMarkup: ReplyMarkup? = null,
+        disableWebPreview: Boolean = false
+    ): String {
+        val msgObj = JsonObject().apply {
+            addProperty("@type", "inputMessageText")
+            add("text", textMsg.toJsonObject())
+            addProperty("disable_web_page_preview", disableWebPreview)
+            addProperty("clear_draft", false)
         }
+        return sendMessageRaw(chatId, msgObj, replyMarkup)
     }
 
     suspend fun executeSendMessageEx(
