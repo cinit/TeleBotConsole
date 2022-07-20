@@ -26,8 +26,8 @@ public class PluginLoader {
         }
         IPlugin plugin;
         try {
-            plugin = (IPlugin) pluginClass.newInstance();
-        } catch (InstantiationException | IllegalAccessException e) {
+            plugin = (IPlugin) pluginClass.getConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
             Log.e(TAG, "Plugin " + name + " class " + pluginInfo.getMainClass() + " could not be instantiated", e);
             return null;
         }
