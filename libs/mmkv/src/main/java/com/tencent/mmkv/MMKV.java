@@ -20,7 +20,7 @@
 
 package com.tencent.mmkv;
 
-import cc.ioctl.util.Log;
+import cc.ioctl.telebot.util.Log;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;

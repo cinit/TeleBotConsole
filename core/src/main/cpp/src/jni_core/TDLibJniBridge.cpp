@@ -9,9 +9,9 @@
 
 #include "natives_utils.h"
 
-#include "../jni/cc_ioctl_intern_NativeBridge.h"
-#include "../jni/cc_ioctl_cli_Console.h"
-#include "../jni/cc_ioctl_util_OsUtils.h"
+#include "../jni/cc_ioctl_telebot_intern_NativeBridge.h"
+#include "../jni/cc_ioctl_telebot_cli_Console.h"
+#include "../jni/cc_ioctl_telebot_util_OsUtils.h"
 
 #include <MMKV.h>
 
@@ -74,12 +74,12 @@ EXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
 std::string gWorkingDir;
 
 /*
- * Class:     cc_ioctl_intern_NativeBridge
+ * Class:     cc_ioctl_telebot_intern_NativeBridge
  * Method:    nativeInit
  * Signature: (Ljava/lang/String;)V
  */
 JNIEXPORT void JNICALL
-Java_cc_ioctl_intern_NativeBridge_nativeInit
+Java_cc_ioctl_telebot_intern_NativeBridge_nativeInit
         (JNIEnv *env, jclass, jstring jworkingDir) {
     requiresNonNullV(jworkingDir, "workingDir is null");
     std::string workingDir = getJstringToUtf8(env, jworkingDir);
@@ -125,23 +125,23 @@ Java_cc_ioctl_intern_NativeBridge_nativeInit
 }
 
 /*
- * Class:     cc_ioctl_util_OsUtils
+ * Class:     cc_ioctl_telebot_util_OsUtils
  * Method:    getPid
  * Signature: ()I
  */
 JNIEXPORT jint JNICALL
-Java_cc_ioctl_util_OsUtils_getPid
+Java_cc_ioctl_telebot_util_OsUtils_getPid
         (JNIEnv *env, jclass) {
     return (jint) TEMP_FAILURE_RETRY(getpid());
 }
 
 /*
- * Class:     cc_ioctl_intern_NativeBridge
+ * Class:     cc_ioctl_telebot_intern_NativeBridge
  * Method:    nativeTDLibPollEventUnlocked
  * Signature: (I)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL
-Java_cc_ioctl_intern_NativeBridge_nativeTDLibPollEventUnlocked
+Java_cc_ioctl_telebot_intern_NativeBridge_nativeTDLibPollEventUnlocked
         (JNIEnv *env, jclass, jint timeout_ms) {
     if (gWorkingDir.empty()) {
         throwIllegalStateException(env, "nativeInit not called");
@@ -158,12 +158,12 @@ Java_cc_ioctl_intern_NativeBridge_nativeTDLibPollEventUnlocked
 }
 
 /*
- * Class:     cc_ioctl_intern_NativeBridge
+ * Class:     cc_ioctl_telebot_intern_NativeBridge
  * Method:    nativeTDLibExecuteSynchronized
  * Signature: (Ljava/lang/String;)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL
-Java_cc_ioctl_intern_NativeBridge_nativeTDLibExecuteSynchronized
+Java_cc_ioctl_telebot_intern_NativeBridge_nativeTDLibExecuteSynchronized
         (JNIEnv *env, jclass, jstring jstrRequest) {
     requiresNonNullP(jstrRequest, "request is null");
     if (gWorkingDir.empty()) {
@@ -176,12 +176,12 @@ Java_cc_ioctl_intern_NativeBridge_nativeTDLibExecuteSynchronized
 }
 
 /*
- * Class:     cc_ioctl_intern_NativeBridge
+ * Class:     cc_ioctl_telebot_intern_NativeBridge
  * Method:    nativeTDLibExecuteAsync
  * Signature: (ILjava/lang/String;)V
  */
 JNIEXPORT void JNICALL
-Java_cc_ioctl_intern_NativeBridge_nativeTDLibExecuteAsync
+Java_cc_ioctl_telebot_intern_NativeBridge_nativeTDLibExecuteAsync
         (JNIEnv *env, jclass, jint clientId, jstring jstrRequest) {
     requiresNonNullV(jstrRequest, "request is null");
     if (gWorkingDir.empty()) {
@@ -198,12 +198,12 @@ Java_cc_ioctl_intern_NativeBridge_nativeTDLibExecuteAsync
 }
 
 /*
- * Class:     cc_ioctl_intern_NativeBridge
+ * Class:     cc_ioctl_telebot_intern_NativeBridge
  * Method:    nativeTDLibCreateClient
  * Signature: ()I
  */
 JNIEXPORT jint JNICALL
-Java_cc_ioctl_intern_NativeBridge_nativeTDLibCreateClient
+Java_cc_ioctl_telebot_intern_NativeBridge_nativeTDLibCreateClient
         (JNIEnv *env, jclass) {
     if (gWorkingDir.empty()) {
         throwIllegalStateException(env, "nativeInit not called");
@@ -214,26 +214,26 @@ Java_cc_ioctl_intern_NativeBridge_nativeTDLibCreateClient
 
 
 /*
- * Class:     cc_ioctl_cli_Console
+ * Class:     cc_ioctl_telebot_cli_Console
  * Method:    nGetConsoleInfo
- * Signature: ()Lcc/ioctl/cli/Console$ConsoleInfo;
+ * Signature: ()Lcc/ioctl/telebot/cli/Console$ConsoleInfo;
  */
 JNIEXPORT jobject JNICALL
-Java_cc_ioctl_cli_Console_nGetConsoleInfo
+Java_cc_ioctl_telebot_cli_Console_nGetConsoleInfo
         (JNIEnv *env, jobject) {
     Console &console = Console::getInstance();
     // TODO: 2022-07-16 implement console info
-    return env->NewObject(env->FindClass("cc/ioctl/cli/Console$ConsoleInfo"),
-                          env->GetMethodID(env->FindClass("cc/ioctl/cli/Console$ConsoleInfo"), "<init>", "(ZZII)V"),
+    return env->NewObject(env->FindClass("cc/ioctl/telebot/cli/Console$ConsoleInfo"),
+                          env->GetMethodID(env->FindClass("cc/ioctl/telebot/cli/Console$ConsoleInfo"), "<init>", "(ZZII)V"),
                           true, false, 120, 80);
 }
 
 /*
- * Class:     cc_ioctl_cli_Console
+ * Class:     cc_ioctl_telebot_cli_Console
  * Method:    nUpdateStatusText
  * Signature: (Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_cc_ioctl_cli_Console_nUpdateStatusText
+JNIEXPORT void JNICALL Java_cc_ioctl_telebot_cli_Console_nUpdateStatusText
         (JNIEnv *env, jobject, jstring jstrStatusText) {
     auto &console = Console::getInstance();
     std::string statusText = getJstringToUtf8(env, jstrStatusText);
@@ -241,11 +241,11 @@ JNIEXPORT void JNICALL Java_cc_ioctl_cli_Console_nUpdateStatusText
 }
 
 /*
- * Class:     cc_ioctl_cli_Console
+ * Class:     cc_ioctl_telebot_cli_Console
  * Method:    nUpdateTitleText
  * Signature: (Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_cc_ioctl_cli_Console_nUpdateTitleText
+JNIEXPORT void JNICALL Java_cc_ioctl_telebot_cli_Console_nUpdateTitleText
         (JNIEnv *env, jobject, jstring jstrTitleText) {
     auto &console = Console::getInstance();
     std::string titleText = getJstringToUtf8(env, jstrTitleText);
@@ -253,11 +253,11 @@ JNIEXPORT void JNICALL Java_cc_ioctl_cli_Console_nUpdateTitleText
 }
 
 /*
- * Class:     cc_ioctl_cli_Console
+ * Class:     cc_ioctl_telebot_cli_Console
  * Method:    nPrintLine
  * Signature: (Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_cc_ioctl_cli_Console_nPrintLine
+JNIEXPORT void JNICALL Java_cc_ioctl_telebot_cli_Console_nPrintLine
         (JNIEnv *env, jobject, jstring jstrLine) {
     if (jstrLine == nullptr) {
         return;
@@ -267,11 +267,11 @@ JNIEXPORT void JNICALL Java_cc_ioctl_cli_Console_nPrintLine
 }
 
 /*
- * Class:     cc_ioctl_cli_Console
+ * Class:     cc_ioctl_telebot_cli_Console
  * Method:    nLogMessage
  * Signature: (ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
  */
-JNIEXPORT void JNICALL Java_cc_ioctl_cli_Console_nLogMessage
+JNIEXPORT void JNICALL Java_cc_ioctl_telebot_cli_Console_nLogMessage
         (JNIEnv *env, jobject, jint level, jstring jstrTag, jstring jstrMessage, jstring jstrDetails) {
     std::string tag = getJstringToUtf8(env, jstrTag);
     std::string message = getJstringToUtf8(env, jstrMessage);
@@ -286,11 +286,11 @@ JNIEXPORT void JNICALL Java_cc_ioctl_cli_Console_nLogMessage
 }
 
 /*
- * Class:     cc_ioctl_cli_Console
+ * Class:     cc_ioctl_telebot_cli_Console
  * Method:    nPromptInputText
  * Signature: (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Z)Ljava/lang/String;
  */
-JNIEXPORT jstring JNICALL Java_cc_ioctl_cli_Console_nPromptInputText
+JNIEXPORT jstring JNICALL Java_cc_ioctl_telebot_cli_Console_nPromptInputText
         (JNIEnv *env, jobject, jstring, jstring, jstring, jboolean) {
     env->ThrowNew(env->FindClass("java/lang/UnsupportedOperationException"), "Not implemented");
     return nullptr;

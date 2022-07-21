@@ -176,5 +176,5 @@ val generateJniHeaders: Task by tasks.creating {
 }
 
 application {
-    mainClass.set("cc.ioctl.tgbot.BotStartupMain")
+    mainClass.set("cc.ioctl.telebot.BotStartupMain")
 }
