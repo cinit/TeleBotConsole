@@ -11,6 +11,7 @@ version = "1.0"
 
 repositories {
     mavenCentral()
+    maven("https://packages.jetbrains.team/maven/p/skija/maven")
 }
 
 dependencies {
@@ -22,6 +23,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.6.2")
     api(projects.libs.mmkv)
     api(projects.common)
+    val skijaArtifact = "skija-linux"
+    val skijaVersion = "0.93.1"
+    api("org.jetbrains.skija:$skijaArtifact:$skijaVersion")
     testImplementation(kotlin("test"))
 }
 

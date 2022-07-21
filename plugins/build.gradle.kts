@@ -8,6 +8,7 @@ version = "unspecified"
 
 repositories {
     mavenCentral()
+    maven("https://packages.jetbrains.team/maven/p/skija/maven")
 }
 
 dependencies {

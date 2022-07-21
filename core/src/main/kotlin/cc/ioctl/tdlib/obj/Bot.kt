@@ -3,11 +3,13 @@ package cc.ioctl.tdlib.obj
 import cc.ioctl.tdlib.RobotServer
 import cc.ioctl.tdlib.tlrpc.RemoteApiException
 import cc.ioctl.tdlib.tlrpc.TlRpcJsonObject
+import cc.ioctl.tdlib.tlrpc.api.InputFile
 import cc.ioctl.tdlib.tlrpc.api.msg.FormattedText
 import cc.ioctl.tdlib.tlrpc.api.msg.ReplyMarkup
 import cc.ioctl.tgbot.EventHandler
 import cc.ioctl.tgbot.TransactionDispatcher
 import cc.ioctl.util.Condition
+import cc.ioctl.util.IoUtils
 import cc.ioctl.util.Log
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -16,6 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
+import org.jetbrains.skija.Image
+import java.io.File
 import java.io.IOException
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -562,15 +566,20 @@ class Bot internal constructor(
     }
 
     @Throws(RemoteApiException::class, IOException::class)
-    suspend fun sendMessageRaw(
+    suspend fun sendMessageRawEx(
         chatId: Long, inputMessageContent: JsonObject,
-        replyMarkup: ReplyMarkup? = null
+        replyMarkup: ReplyMarkup? = null,
+        msgThreadId: Long = 0, replyMsgId: Long = 0,
+        options: JsonObject? = null
     ): JsonObject {
         JsonObject().apply {
             addProperty("@type", "sendMessage")
             addProperty("chat_id", chatId)
             add("input_message_content", inputMessageContent)
             add("reply_markup", replyMarkup?.toJsonObject())
+            addProperty("message_thread_id", msgThreadId)
+            addProperty("reply_to_message_id", replyMsgId)
+            add("options", options)
         }.let {
             val result = executeRequest(it.toString(), server.defaultTimeout)
             if (result == null) {
@@ -596,7 +605,9 @@ class Bot internal constructor(
     suspend fun sendMessageForText(
         chatId: Long, textMsg: FormattedText,
         replyMarkup: ReplyMarkup? = null,
-        disableWebPreview: Boolean = false
+        disableWebPreview: Boolean = false,
+        msgThreadId: Long = 0, replyMsgId: Long = 0,
+        options: JsonObject? = null
     ): JsonObject {
         val msgObj = JsonObject().apply {
             addProperty("@type", "inputMessageText")
@@ -604,27 +615,49 @@ class Bot internal constructor(
             addProperty("disable_web_page_preview", disableWebPreview)
             addProperty("clear_draft", false)
         }
-        return sendMessageRaw(chatId, msgObj, replyMarkup)
+        return sendMessageRawEx(chatId, msgObj, replyMarkup, msgThreadId, replyMsgId, options)
     }
 
-    suspend fun executeSendMessageEx(
-        chatId: Long, msgThreadId: Long, replyMsgId: Long,
-        options: JsonObject?, replyMarkup: JsonObject?,
-        message: JsonObject, timeout: Int
-    ): JsonObject? {
-        TlRpcJsonObject.checkTypeNullable(options, "messageSendOptions")
-        TlRpcJsonObject.checkTypeNullable(replyMarkup, "ReplyMarkup")
-        val request = JsonObject().apply {
-            addProperty("@type", "sendMessage")
-            addProperty("chat_id", chatId)
-            addProperty("message_thread_id", msgThreadId)
-            addProperty("reply_to_message_id", replyMsgId)
-            add("options", options)
-            add("reply_markup", replyMarkup)
-            add("input_message_content", message)
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun sendMessageForPhoto(
+        chatId: Long, file: File, caption: String,
+        replyMarkup: ReplyMarkup? = null, ttl: Int = 0,
+        msgThreadId: Long = 0, replyMsgId: Long = 0,
+        options: JsonObject? = null
+    ): JsonObject {
+        return sendMessageForPhoto(
+            chatId, file, FormattedText.forPlainText(caption), replyMarkup,
+            ttl, msgThreadId, replyMsgId, options
+        )
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun sendMessageForPhoto(
+        chatId: Long, file: File, caption: FormattedText?,
+        replyMarkup: ReplyMarkup? = null, ttl: Int = 0,
+        msgThreadId: Long = 0, replyMsgId: Long = 0,
+        options: JsonObject? = null
+    ): JsonObject {
+        val inputFile = InputFile.fromLocalFileToJsonObject(file)
+        val imgHeight: Int
+        val imgWidth: Int
+        // get image size
+        withContext(Dispatchers.IO) {
+            val bytes = IoUtils.readFully(file.inputStream())
+            Image.makeFromEncoded(bytes).use { img ->
+                imgHeight = img.height
+                imgWidth = img.width
+            }
         }
-        val resp = executeRequest(request.toString(), timeout)
-        return if (resp == null) null else JsonParser.parseString(resp).asJsonObject
+        val msgObj = JsonObject().apply {
+            addProperty("@type", "inputMessagePhoto")
+            add("photo", inputFile)
+            addProperty("width", imgWidth)
+            addProperty("height", imgHeight)
+            add("caption", caption?.toJsonObject())
+            addProperty("ttl", ttl)
+        }
+        return sendMessageRawEx(chatId, msgObj, replyMarkup, msgThreadId, replyMsgId, options)
     }
 
     @Throws(RemoteApiException::class, IOException::class)

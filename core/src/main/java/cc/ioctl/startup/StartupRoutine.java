@@ -113,6 +113,7 @@ public class StartupRoutine {
         Console console = Console.getInstance();
         Log.setLogHandler(console);
         Log.d("StartupRoutine", "StartupRoutine started");
+        org.jetbrains.skija.impl.Library.staticLoad();
         // initialize robot server
         RobotServer server = RobotServer.createInstance(workingDir);
         ServerInit.runServer(server, socketProxy);
