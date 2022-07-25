@@ -18,4 +18,6 @@ public @interface TlRpcField {
      */
     @NotNull
     String value();
+
+    boolean optional() default false;
 }

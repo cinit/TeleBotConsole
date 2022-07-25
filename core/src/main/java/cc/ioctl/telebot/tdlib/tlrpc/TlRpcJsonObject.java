@@ -1,9 +1,6 @@
 package cc.ioctl.telebot.tdlib.tlrpc;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -163,11 +160,10 @@ public abstract class TlRpcJsonObject implements Cloneable {
         String type;
     }
 
-    public static <T extends TlRpcJsonObject> T fromJsonString(@NotNull Class<T> clazz, @NotNull String json) throws ReflectiveOperationException {
-        JsonObject jsonObject = JsonParser.parseString(json).getAsJsonObject();
+    public static <T extends TlRpcJsonObject> T fromJsonObject(@NotNull Class<T> clazz, @NotNull JsonObject jsonObject) throws ReflectiveOperationException {
         T result = clazz.getConstructor().newInstance();
         for (Field f : clazz.getDeclaredFields()) {
-            if (!Modifier.isPublic(f.getModifiers())) {
+            if (!Modifier.isPublic(f.getModifiers()) || Modifier.isStatic(f.getModifiers())) {
                 continue;
             }
             // check annotation
@@ -175,33 +171,35 @@ public abstract class TlRpcJsonObject implements Cloneable {
                 TlRpcField annotation = f.getAnnotation(TlRpcField.class);
                 String fieldName = annotation.value();
                 if (jsonObject.has(fieldName)) {
-                    Object value = jsonObject.get(fieldName);
+                    JsonElement value = jsonObject.get(fieldName);
                     Class<?> type = f.getType();
                     try {
                         if (type.isPrimitive()) {
                             if (type == int.class) {
-                                f.setInt(result, (int) value);
+                                f.setInt(result, value.getAsInt());
                             } else if (type == long.class) {
-                                f.setLong(result, (long) value);
+                                f.setLong(result, value.getAsLong());
                             } else if (type == boolean.class) {
-                                f.setBoolean(result, (boolean) value);
+                                f.setBoolean(result, value.getAsBoolean());
                             } else if (type == double.class) {
-                                f.setDouble(result, (double) value);
+                                f.setDouble(result, value.getAsDouble());
                             } else if (type == float.class) {
-                                f.setFloat(result, (float) value);
+                                f.setFloat(result, value.getAsFloat());
                             } else if (type == short.class) {
-                                f.setShort(result, (short) value);
+                                f.setShort(result, value.getAsShort());
                             } else if (type == byte.class) {
-                                f.setByte(result, (byte) value);
+                                f.setByte(result, value.getAsByte());
                             } else if (type == char.class) {
-                                f.setChar(result, (char) value);
+                                f.setChar(result, (char) value.getAsInt());
                             } else {
                                 throw new AssertionError("Unknown primitive type: " + type);
                             }
                         } else if (type == String.class) {
+                            f.set(result, value.getAsString());
+                        } else if (type == JsonObject.class) {
                             f.set(result, value);
                         } else if (TlRpcJsonObject.class.isAssignableFrom(type)) {
-                            f.set(result, fromJsonString((Class<? extends TlRpcJsonObject>) type, value.toString()));
+                            f.set(result, fromJsonObject((Class<? extends TlRpcJsonObject>) type, (JsonObject) value));
                         } else {
                             throw new AssertionError("Unknown type: " + type);
                         }
@@ -209,14 +207,18 @@ public abstract class TlRpcJsonObject implements Cloneable {
                         // should not happen
                         throw new AssertionError(e);
                     }
+                } else {
+                    if (!annotation.optional()) {
+                        throw new IllegalArgumentException("Missing required field: " + fieldName);
+                    }
                 }
             }
         }
         return result;
     }
 
-    public static TlRpcObjDecodeResult fromJsonStringEx(@NotNull Class<? extends TlRpcJsonObject> clazz, @NotNull String json) throws ReflectiveOperationException {
-        TlRpcJsonObject obj = fromJsonString(clazz, json);
+    public static TlRpcObjDecodeResult fromJsonObjectEx(@NotNull Class<? extends TlRpcJsonObject> clazz, @NotNull JsonObject json) throws ReflectiveOperationException {
+        TlRpcJsonObject obj = fromJsonObject(clazz, json);
         TlRpcObjDecodeResult result = new TlRpcObjDecodeResult();
         result.object = obj;
         result.clientId = getClientId(json);
@@ -247,6 +249,32 @@ public abstract class TlRpcJsonObject implements Cloneable {
     @Nullable
     public static String getType(@NotNull String json) {
         JsonObject obj = (JsonObject) JsonParser.parseString(json);
+        if (obj.has("@type")) {
+            return obj.get("@type").getAsString();
+        } else {
+            return null;
+        }
+    }
+
+    public static int getClientId(@NotNull JsonObject obj) {
+        if (obj.has("@client_id")) {
+            return obj.get("@client_id").getAsInt();
+        } else {
+            return -1;
+        }
+    }
+
+    @Nullable
+    public static String getExtra(@NotNull JsonObject obj) {
+        if (obj.has("@extra")) {
+            return obj.get("@extra").getAsString();
+        } else {
+            return null;
+        }
+    }
+
+    @Nullable
+    public static String getType(@NotNull JsonObject obj) {
         if (obj.has("@type")) {
             return obj.get("@type").getAsString();
         } else {
