@@ -1,24 +1,22 @@
 package cc.ioctl.telebot.tdlib.obj
 
+import cc.ioctl.telebot.EventHandler
+import cc.ioctl.telebot.TransactionDispatcher
 import cc.ioctl.telebot.tdlib.RobotServer
 import cc.ioctl.telebot.tdlib.tlrpc.RemoteApiException
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject
 import cc.ioctl.telebot.tdlib.tlrpc.api.InputFile
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.FormattedText
-import cc.ioctl.telebot.tdlib.tlrpc.api.msg.ReplyMarkup
-import cc.ioctl.telebot.EventHandler
-import cc.ioctl.telebot.TransactionDispatcher
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.Message
+import cc.ioctl.telebot.tdlib.tlrpc.api.msg.ReplyMarkup
 import cc.ioctl.telebot.util.Condition
 import cc.ioctl.telebot.util.IoUtils
 import cc.ioctl.telebot.util.Log
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.withContext
 import org.jetbrains.skija.Image
 import java.io.File
 import java.io.IOException
@@ -57,6 +55,21 @@ class Bot internal constructor(
 
     private val mOnRecvMsgListeners = HashSet<EventHandler.MessageListenerV1>(1)
     private val mCallbackQueryListeners = HashSet<EventHandler.CallbackQueryListenerV1>(1)
+
+    internal data class TransientMessageHolder(
+        val chatId: Long,
+        val oldMsgId: Long,
+        val oldMessage: Message,
+        val time: Long,
+        val lock: Mutex,
+        @Volatile var newMessage: Message? = null,
+        @Volatile var errorMsg: String? = null
+    )
+
+    private val mTransientMessageLock = Any()
+
+    // key is "chatId_oldMsgId", guarded by mTransientMessageLock
+    private val mTransientMessages = HashMap<String, TransientMessageHolder>(1)
 
     private var mDefaultLogOnlyErrorHandler = object : TransactionDispatcher.TransactionCallbackV1 {
         override fun onEvent(event: String, bot: Bot?, type: String): Boolean {
@@ -147,6 +160,9 @@ class Bot internal constructor(
             "updateMessageSendSucceeded" -> {
                 handleUpdateMessageSendSucceeded(event)
             }
+            "updateMessageSendFailed" -> {
+                handleUpdateMessageSendFailed(event)
+            }
             "updateNewCallbackQuery" -> {
                 handleUpdateNewCallbackQuery(event)
             }
@@ -224,6 +240,19 @@ class Bot internal constructor(
         val deleteMessages = JsonParser.parseString(event).asJsonObject
         val chatId = deleteMessages.get("chat_id").asLong
         val messageIds = deleteMessages.get("message_ids").asJsonArray.map { it.asLong }
+        // TDLib docs say that some messages being sent can be irrecoverably deleted,
+        // in which case updateDeleteMessages will be received instead of updateMessageSendFailed.
+        synchronized(mTransientMessageLock) {
+            for (msgId in messageIds) {
+                val key = "${chatId}_${msgId}"
+                val holder = mTransientMessages[key]
+                if (holder != null && holder.lock.isLocked) {
+                    holder.newMessage = holder.oldMessage
+                    holder.errorMsg = "message has been deleted"
+                    holder.lock.unlock()
+                }
+            }
+        }
         for (listener in mOnRecvMsgListeners) {
             listener.onDeleteMessages(this, chatId, messageIds)
         }
@@ -251,14 +280,55 @@ class Bot internal constructor(
 
     private fun handleUpdateMessageSendSucceeded(event: String): Boolean {
         val update = JsonParser.parseString(event).asJsonObject
-        val msg = update.getAsJsonObject("message")
-        val msgId = msg.get("id").asLong
-        val senderId = getSenderId(msg.getAsJsonObject("sender_id"))
-        val chatId = msg.get("chat_id").asLong
+        val msg = Message.fromJsonObject(update.getAsJsonObject("message"))
+        val msgId = msg.id
+        val senderId = msg.senderId
+        val chatId = msg.chatId
         val oldMsgId = update.get("old_message_id").asLong
+        synchronized(mTransientMessageLock) {
+            val key = "${chatId}_${oldMsgId}"
+            val holder = mTransientMessages[key]
+            if (holder != null) {
+                holder.newMessage = msg
+                val lock = holder.lock
+                if (lock.isLocked) {
+                    lock.unlock()
+                } else {
+                    Log.e(TAG, "handleUpdateMessageSendSucceeded: mutex is not locked")
+                }
+            }
+        }
         val logMsg = "handleUpdateMessageSendSucceeded: " +
                 "chatId=$chatId, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
         Log.d(TAG, logMsg)
+        return true
+    }
+
+    private fun handleUpdateMessageSendFailed(event: String): Boolean {
+        val update = JsonParser.parseString(event).asJsonObject
+        val msg = Message.fromJsonObject(update.getAsJsonObject("message"))
+        val msgId = msg.id
+        val senderId = msg.senderId
+        val chatId = msg.chatId
+        val oldMsgId = update.get("old_message_id").asLong
+        val errorMsg = update.get("error_message").asString
+        synchronized(mTransientMessageLock) {
+            val key = "${chatId}_${oldMsgId}"
+            val holder = mTransientMessages[key]
+            if (holder != null) {
+                holder.newMessage = msg
+                holder.errorMsg = errorMsg
+                val lock = holder.lock
+                if (lock.isLocked) {
+                    lock.unlock()
+                } else {
+                    Log.e(TAG, "handleUpdateMessageSendFailed: mutex is not locked")
+                }
+            }
+        }
+        val logMsg = "handleUpdateMessageSendFailed: " +
+                "chatId=$chatId, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
+        Log.w(TAG, logMsg)
         return true
     }
 
@@ -575,7 +645,7 @@ class Bot internal constructor(
         msgThreadId: Long = 0, replyMsgId: Long = 0,
         options: JsonObject? = null
     ): Message {
-        JsonObject().apply {
+        val request = JsonObject().apply {
             addProperty("@type", "sendMessage")
             addProperty("chat_id", chatId)
             add("input_message_content", inputMessageContent)
@@ -583,31 +653,68 @@ class Bot internal constructor(
             addProperty("message_thread_id", msgThreadId)
             addProperty("reply_to_message_id", replyMsgId)
             add("options", options)
-        }.let {
-            val result = executeRequest(it.toString(), server.defaultTimeout)
-            if (result == null) {
-                throw IOException("Timeout")
+        }
+        val until = System.currentTimeMillis() + server.defaultTimeout
+        val result = executeRequest(request.toString(), server.defaultTimeout)
+            ?: throw IOException("Timeout executing sendMessage")
+        val obj = JsonParser.parseString(result).asJsonObject
+        TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+        val oldMsg: Message
+        try {
+            oldMsg = Message.fromJsonObject(obj)
+        } catch (e: ReflectiveOperationException) {
+            throw IOException("failed to parse result: $obj", e)
+        }
+        val oldMsgId = oldMsg.id
+        val key = "${chatId}_${oldMsgId}"
+        val owner = Mutex(true)
+        val holder = TransientMessageHolder(
+            chatId, oldMsgId, oldMsg, System.currentTimeMillis(), lock = owner
+        )
+        synchronized(mTransientMessageLock) {
+            mTransientMessages[key] = holder
+        }
+        while (holder.newMessage == null) {
+            val now = System.currentTimeMillis()
+            val remain = until - now
+            if (remain <= 0) {
+                break
             } else {
-                val obj = JsonParser.parseString(result).asJsonObject
-                TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
                 try {
-                    val msg = Message.fromJsonObject(obj)
-                    Log.d(TAG, "sendMessageRaw: oldMsgId: ${msg.id}")
-                    return msg
-                } catch (e: ReflectiveOperationException) {
-                    throw IOException("failed to parse result: $obj", e)
+                    withTimeout(remain) {
+                        owner.lock()
+                    }
+                } catch (e: TimeoutCancellationException) {
+                    break
                 }
             }
         }
+        synchronized(mTransientMessageLock) {
+            if (mTransientMessages.remove(key) != holder) {
+                throw AssertionError("mTransientMessages remove check failed")
+            }
+        }
+        val newMessage = holder.newMessage
+        if (newMessage == null) {
+            throw IOException("Timeout waiting for updateMessageSendSuccess")
+        }
+        if (holder.errorMsg != null) {
+            throw RemoteApiException(holder.errorMsg)
+        }
+        return newMessage
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun sendMessageForText(
         chatId: Long, text: String,
         replyMarkup: ReplyMarkup? = null,
-        disableWebPreview: Boolean = false
+        disableWebPreview: Boolean = false,
+        msgThreadId: Long = 0, replyMsgId: Long = 0
     ): Message {
-        return sendMessageForText(chatId, FormattedText.forPlainText(text), replyMarkup, disableWebPreview)
+        return sendMessageForText(
+            chatId, FormattedText.forPlainText(text), replyMarkup, disableWebPreview,
+            msgThreadId = msgThreadId, replyMsgId = replyMsgId
+        )
     }
 
     @Throws(RemoteApiException::class, IOException::class)
