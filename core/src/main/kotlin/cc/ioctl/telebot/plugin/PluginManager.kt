@@ -1,5 +1,7 @@
 package cc.ioctl.telebot.plugin
 
+import cc.ioctl.telebot.tdlib.RobotServer
+import cc.ioctl.telebot.tdlib.obj.Bot
 import cc.ioctl.telebot.util.Log
 import com.moandjiezana.toml.Toml
 import java.io.File
@@ -90,7 +92,7 @@ object PluginManager {
                     plugin.isEnabled = true
                     plugin.onEnable()
                 } catch (e: Throwable) {
-                    if (e is Exception || e is LinkageError || e is IOError) {
+                    if (e is Exception || e is LinkageError || e is IOError || e.javaClass.name.startsWith("kotlin.")) {
                         Log.e(TAG, "Failed to enable plugin ${it.key}", e)
                         plugin.isEnabled = false
                     } else {
@@ -100,5 +102,49 @@ object PluginManager {
             }
         }
     }
+
+    internal fun callPluginsServerStarted() {
+        synchronized(mLock) {
+            mLoadedPlugins.forEach {
+                val plugin = it.value
+                Log.i(TAG, "call plugin onServerStart ${it.key}")
+                try {
+                    plugin.onServerStart()
+                } catch (e: Throwable) {
+                    if (e is Exception || e is LinkageError || e is IOError || e.javaClass.name.startsWith("kotlin.")) {
+                        Log.e(TAG, "Failed to call plugin onServerStart ${it.key}", e)
+                    } else {
+                        throw e
+                    }
+                }
+            }
+        }
+    }
+
+    internal fun callPluginsLoginFinished() {
+        val bots = HashMap<Long, Bot>(5)
+        RobotServer.instance.allAuthenticatedBots.forEach {
+            val uid = it.userId
+            if (uid > 0) {
+                bots[uid] = it
+            }
+        }
+        synchronized(mLock) {
+            mLoadedPlugins.forEach {
+                val plugin = it.value
+                Log.i(TAG, "call plugin onServerStart ${it.key}")
+                try {
+                    plugin.onLoginFinish(bots)
+                } catch (e: Throwable) {
+                    if (e is Exception || e is LinkageError || e is IOError || e.javaClass.name.startsWith("kotlin.")) {
+                        Log.e(TAG, "Failed to call plugin onLoginFinish ${it.key}", e)
+                    } else {
+                        throw e
+                    }
+                }
+            }
+        }
+    }
+
 
 }

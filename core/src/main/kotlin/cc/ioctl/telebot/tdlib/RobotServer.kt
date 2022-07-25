@@ -25,6 +25,8 @@ class RobotServer private constructor(val baseDir: File) {
 
     var proxy: String? = null
     val isRunning: Boolean get() = !mShuttingDown
+    val serverConfigDir = File(baseDir, "config")
+    val pluginsDir = File(baseDir, "plugins")
     var defaultTimeout: Int = 90 * 1000
     val cachedObjectPool: NonLocalObjectCachePool = NonLocalObjectCachePool(this)
     val executor: ExecutorService = Executors.newCachedThreadPool()
@@ -46,6 +48,7 @@ class RobotServer private constructor(val baseDir: File) {
         if (!apiHash.matches(Regex("[a-f0-9]{32}"))) {
             throw IllegalArgumentException("apiHash must be a 40-character lowercase hex string")
         }
+        IoUtils.mkdirsOrThrow(pluginsDir)
         val tdlibDir = File(baseDir, "tdlib")
         IoUtils.mkdirsOrThrow(tdlibDir)
         synchronized(mLock) {

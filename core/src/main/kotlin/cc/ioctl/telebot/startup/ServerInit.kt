@@ -67,6 +67,10 @@ object ServerInit {
         PluginManager.registerPluginsFromConfig(pluginsConfig)
         // load plugins
         PluginManager.loadRegisterPlugins()
+        // enable plugins
+        PluginManager.enableLoadedPlugins()
+        // call server start
+        PluginManager.callPluginsServerStarted()
         for (phoneNumber in userBotPhones) {
             Log.e(TAG, "User bot phone NOT IMPLEMENTED")
             throw java.lang.UnsupportedOperationException("User bot phone NOT IMPLEMENTED")
@@ -82,8 +86,8 @@ object ServerInit {
             }
             Log.i(TAG, "Login success")
         }
-        // enable plugins
-        PluginManager.enableLoadedPlugins()
+        // call plugins login finished
+        PluginManager.callPluginsLoginFinished()
         handleConsoleCommand()
     }
 
