@@ -670,6 +670,114 @@ class Bot internal constructor(
     }
 
     @Throws(RemoteApiException::class, IOException::class)
+    suspend fun editMessageCaption(
+        chatId: Long, msgId: Long,
+        caption: FormattedText,
+        replyMarkup: ReplyMarkup? = null
+    ): JsonObject {
+        JsonObject().apply {
+            addProperty("@type", "editMessageCaption")
+            addProperty("chat_id", chatId)
+            addProperty("message_id", msgId)
+            add("caption", caption.toJsonObject())
+            add("reply_markup", replyMarkup?.toJsonObject())
+        }.let {
+            val result = executeRequest(it.toString(), server.defaultTimeout)
+            if (result == null) {
+                throw IOException("Timeout")
+            } else {
+                val obj = JsonParser.parseString(result).asJsonObject
+                TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+                return obj
+            }
+        }
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun deleteMessages(
+        chatId: Long, msgIds: Array<Long>
+    ): JsonObject {
+        if (msgIds.isEmpty()) {
+            throw IllegalArgumentException("msgIds is empty")
+        }
+        JsonObject().apply {
+            addProperty("@type", "deleteMessages")
+            addProperty("chat_id", chatId)
+            add("message_ids", JsonArray().apply {
+                msgIds.forEach { add(it) }
+            })
+            addProperty("revoke", true)
+        }.let {
+            val result = executeRequest(it.toString(), server.defaultTimeout)
+            if (result == null) {
+                throw IOException("Timeout")
+            } else {
+                val obj = JsonParser.parseString(result).asJsonObject
+                TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+                return obj
+            }
+        }
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun deleteMessages(
+        chatId: Long, msgIds: List<Long>
+    ): JsonObject {
+        return deleteMessages(chatId, msgIds.toTypedArray())
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun deleteMessage(
+        chatId: Long, msgId: Long
+    ): JsonObject {
+        return deleteMessages(chatId, arrayOf(msgId))
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun editMessageTextEx(
+        chatId: Long, msgId: Long,
+        inputMessageContent: JsonObject,
+        replyMarkup: ReplyMarkup? = null
+    ): JsonObject {
+        TlRpcJsonObject.checkTypeNonNull(inputMessageContent, "inputMessageText")
+        JsonObject().apply {
+            addProperty("@type", "editMessageText")
+            addProperty("chat_id", chatId)
+            addProperty("message_id", msgId)
+            add("input_message_content", inputMessageContent)
+            add("reply_markup", replyMarkup?.toJsonObject())
+        }.let {
+            val result = executeRequest(it.toString(), server.defaultTimeout)
+            if (result == null) {
+                throw IOException("Timeout")
+            } else {
+                val obj = JsonParser.parseString(result).asJsonObject
+                TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+                return obj
+            }
+        }
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun editMessageText(
+        chatId: Long, msgId: Long,
+        formattedText: FormattedText,
+        replyMarkup: ReplyMarkup? = null,
+        disableWebPreview: Boolean = true
+    ): JsonObject {
+        return editMessageTextEx(
+            chatId, msgId,
+            JsonObject().apply {
+                addProperty("@type", "inputMessageText")
+                add("text", formattedText.toJsonObject())
+                addProperty("disable_web_page_preview", disableWebPreview)
+                addProperty("clear_draft", false)
+            },
+            replyMarkup
+        )
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
     suspend fun answerCallbackQuery(
         queryId: String, text: String?, showAlert: Boolean,
         url: String? = null, cacheTime: Int = 0
