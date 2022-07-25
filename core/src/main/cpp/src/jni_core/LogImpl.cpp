@@ -3,7 +3,7 @@
 //
 #include <malloc.h>
 #include <cstring>
-
+#include <ctime>
 #include <sys/time.h>
 
 #include "LogImpl.h"
@@ -26,11 +26,13 @@ void defaultLogHandler(Log::Level level, const char *tag, const char *msg) {
     }
     timeval tv = {};
     gettimeofday(&tv, nullptr);
-    int month = int(int64_t(tv.tv_sec) / int64_t(60 * 60 * 24 * 30));
-    int day = int(int64_t(tv.tv_sec) / int64_t(60 * 60 * 24));
-    int hour = int(int64_t(tv.tv_sec) / int64_t(60 * 60));
-    int min = int(int64_t(tv.tv_sec) / int64_t(60));
-    int sec = int(int64_t(tv.tv_sec) % int64_t(60));
+    time_t timesec = tv.tv_sec;
+    const auto *tm = localtime(&timesec);
+    int month = tm->tm_mon + 1;
+    int day = tm->tm_mday;
+    int hour = tm->tm_hour;
+    int min = tm->tm_min;
+    int sec = tm->tm_sec;
     int usec = int(tv.tv_usec);
     const char *tagString = nullptr;
     if (LoggerOutputImpl_mEnableVt100) {
