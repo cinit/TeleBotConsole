@@ -144,6 +144,15 @@ class Bot internal constructor(
             "updateNewMessage" -> {
                 handleUpdateNewMessage(event)
             }
+            "updateMessageContent" -> {
+                handleUpdateMessageContent(event)
+            }
+            "updateFile" -> {
+                handleUpdateFile(event)
+            }
+            "updateMessageEdited" -> {
+                handleUpdateMessageEdited(event)
+            }
             "updateGroup",
             "updateSupergroup" -> {
                 handleUpdateTypedGroup(event, type)
@@ -344,6 +353,34 @@ class Bot internal constructor(
         // call listeners
         for (listener in mOnRecvMsgListeners) {
             listener.onReceiveMessage(this, chatId, senderId, obj)
+        }
+        return true
+    }
+
+    private fun handleUpdateMessageContent(event: String): Boolean {
+        val obj = JsonParser.parseString(event).asJsonObject
+        val chatId = obj.get("chat_id").asLong
+        val msgId = obj.get("message_id").asLong
+        val content = obj.getAsJsonObject("new_content")
+        // call listeners
+        for (listener in mOnRecvMsgListeners) {
+            listener.onUpdateMessageContent(this, chatId, msgId, content)
+        }
+        return true
+    }
+
+    private fun handleUpdateFile(event: String): Boolean {
+        Log.d(TAG, "handleUpdateFile: $event")
+        return true
+    }
+
+    private fun handleUpdateMessageEdited(event: String): Boolean {
+        val obj = JsonParser.parseString(event).asJsonObject
+        val chatId = obj.get("chat_id").asLong
+        val msgId = obj.get("message_id").asLong
+        val editDate = obj.get("edit_date").asInt
+        for (listener in mOnRecvMsgListeners) {
+            listener.onMessageEdited(this, chatId, msgId, editDate)
         }
         return true
     }

@@ -8,6 +8,8 @@ object EventHandler {
     interface MessageListenerV1 {
         fun onReceiveMessage(bot: Bot, chatId: Long, senderId: Long, message: JsonObject): Boolean
         fun onDeleteMessages(bot: Bot, chatId: Long, msgIds: List<Long>): Boolean
+        fun onUpdateMessageContent(bot: Bot, chatId: Long, msgId: Long, content: JsonObject): Boolean
+        fun onMessageEdited(bot: Bot, chatId: Long, msgId: Long, editDate: Int): Boolean
     }
 
     interface CallbackQueryListenerV1 {
