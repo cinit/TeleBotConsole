@@ -1,10 +1,10 @@
 //
 // Created by kinit on 7/10/22.
 //
-
-#include <ctime>
 #include <malloc.h>
 #include <cstring>
+
+#include <sys/time.h>
 
 #include "LogImpl.h"
 #include "Console.h"
@@ -24,13 +24,14 @@ void defaultLogHandler(Log::Level level, const char *tag, const char *msg) {
     if (buf == nullptr) {
         return;
     }
-    time_t now = time(nullptr);
-    struct tm *tm = localtime(&now);
-    int month = tm->tm_mon + 1;
-    int day = tm->tm_mday;
-    int hour = tm->tm_hour;
-    int min = tm->tm_min;
-    int sec = tm->tm_sec;
+    timeval tv = {};
+    gettimeofday(&tv, nullptr);
+    int month = int(int64_t(tv.tv_sec) / int64_t(60 * 60 * 24 * 30));
+    int day = int(int64_t(tv.tv_sec) / int64_t(60 * 60 * 24));
+    int hour = int(int64_t(tv.tv_sec) / int64_t(60 * 60));
+    int min = int(int64_t(tv.tv_sec) / int64_t(60));
+    int sec = int(int64_t(tv.tv_sec) % int64_t(60));
+    int usec = int(tv.tv_usec);
     const char *tagString = nullptr;
     if (LoggerOutputImpl_mEnableVt100) {
         switch (level) {
@@ -97,7 +98,7 @@ void defaultLogHandler(Log::Level level, const char *tag, const char *msg) {
     }
     // assemble the log message
     // MM-DD HH:MM:SS LEVEL TAG MSG
-    snprintf(buf, len, "%02d-%02d %02d:%02d:%02d %s %s %s\n", month, day, hour, min, sec, tagString, tag, msg);
+    snprintf(buf, len, "%02d-%02d %02d:%02d:%02d.%06d %s %s %s\n", month, day, hour, min, sec, usec, tagString, tag, msg);
     // write to the fifo
     cli::Console &console = cli::Console::getInstance();
     console.printLine(buf);
