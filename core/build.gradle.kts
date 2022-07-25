@@ -6,7 +6,7 @@ plugins {
     application
 }
 
-group = "cc.ioctl.neoauth2tgbot"
+group = "cc.ioctl.telebotconsole"
 version = "1.0"
 
 repositories {
