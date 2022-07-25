@@ -8,6 +8,7 @@ import cc.ioctl.telebot.tdlib.tlrpc.api.msg.FormattedText
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.ReplyMarkup
 import cc.ioctl.telebot.EventHandler
 import cc.ioctl.telebot.TransactionDispatcher
+import cc.ioctl.telebot.tdlib.tlrpc.api.msg.Message
 import cc.ioctl.telebot.util.Condition
 import cc.ioctl.telebot.util.IoUtils
 import cc.ioctl.telebot.util.Log
@@ -255,7 +256,9 @@ class Bot internal constructor(
         val senderId = getSenderId(msg.getAsJsonObject("sender_id"))
         val chatId = msg.get("chat_id").asLong
         val oldMsgId = update.get("old_message_id").asLong
-        Log.d(TAG, "handleUpdateMessageSendSucceeded: $msgId, $senderId, $chatId, $oldMsgId")
+        val logMsg = "handleUpdateMessageSendSucceeded: " +
+                "chatId=$chatId, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
+        Log.d(TAG, logMsg)
         return true
     }
 
@@ -571,7 +574,7 @@ class Bot internal constructor(
         replyMarkup: ReplyMarkup? = null,
         msgThreadId: Long = 0, replyMsgId: Long = 0,
         options: JsonObject? = null
-    ): JsonObject {
+    ): Message {
         JsonObject().apply {
             addProperty("@type", "sendMessage")
             addProperty("chat_id", chatId)
@@ -587,7 +590,13 @@ class Bot internal constructor(
             } else {
                 val obj = JsonParser.parseString(result).asJsonObject
                 TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
-                return obj
+                try {
+                    val msg = Message.fromJsonObject(obj)
+                    Log.d(TAG, "sendMessageRaw: oldMsgId: ${msg.id}")
+                    return msg
+                } catch (e: ReflectiveOperationException) {
+                    throw IOException("failed to parse result: $obj", e)
+                }
             }
         }
     }
@@ -597,7 +606,7 @@ class Bot internal constructor(
         chatId: Long, text: String,
         replyMarkup: ReplyMarkup? = null,
         disableWebPreview: Boolean = false
-    ): JsonObject {
+    ): Message {
         return sendMessageForText(chatId, FormattedText.forPlainText(text), replyMarkup, disableWebPreview)
     }
 
@@ -605,10 +614,10 @@ class Bot internal constructor(
     suspend fun sendMessageForText(
         chatId: Long, textMsg: FormattedText,
         replyMarkup: ReplyMarkup? = null,
-        disableWebPreview: Boolean = false,
+        disableWebPreview: Boolean = true,
         msgThreadId: Long = 0, replyMsgId: Long = 0,
         options: JsonObject? = null
-    ): JsonObject {
+    ): Message {
         val msgObj = JsonObject().apply {
             addProperty("@type", "inputMessageText")
             add("text", textMsg.toJsonObject())
@@ -624,7 +633,7 @@ class Bot internal constructor(
         replyMarkup: ReplyMarkup? = null, ttl: Int = 0,
         msgThreadId: Long = 0, replyMsgId: Long = 0,
         options: JsonObject? = null
-    ): JsonObject {
+    ): Message {
         return sendMessageForPhoto(
             chatId, file, FormattedText.forPlainText(caption), replyMarkup,
             ttl, msgThreadId, replyMsgId, options
@@ -637,7 +646,7 @@ class Bot internal constructor(
         replyMarkup: ReplyMarkup? = null, ttl: Int = 0,
         msgThreadId: Long = 0, replyMsgId: Long = 0,
         options: JsonObject? = null
-    ): JsonObject {
+    ): Message {
         val inputFile = InputFile.fromLocalFileToJsonObject(file)
         val imgHeight: Int
         val imgWidth: Int
