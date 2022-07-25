@@ -18,7 +18,7 @@ dependencies {
     api("com.google.code.gson:gson:2.9.0")
     implementation("org.jline:jline:3.21.0")
     implementation("org.jetbrains:annotations:23.0.0")
-    implementation("com.moandjiezana.toml:toml4j:0.7.2")
+    api("com.moandjiezana.toml:toml4j:0.7.2")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.6.2")
     api(projects.libs.mmkv)
