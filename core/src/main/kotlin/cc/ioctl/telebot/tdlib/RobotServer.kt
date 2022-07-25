@@ -27,7 +27,7 @@ class RobotServer private constructor(val baseDir: File) {
     val isRunning: Boolean get() = !mShuttingDown
     val serverConfigDir = File(baseDir, "config")
     val pluginsDir = File(baseDir, "plugins")
-    var defaultTimeout: Int = 90 * 1000
+    var defaultTimeout: Int = 30 * 1000
     val cachedObjectPool: NonLocalObjectCachePool = NonLocalObjectCachePool(this)
     val executor: ExecutorService = Executors.newCachedThreadPool()
 
