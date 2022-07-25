@@ -2,13 +2,7 @@ package cc.ioctl.telebot.util;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
@@ -40,6 +34,68 @@ public class IoUtils {
             }
         }
         return baos.toByteArray();
+    }
+
+    /**
+     * Read exact @{code length} bytes from an input stream and stores them in a byte array.
+     * The input stream is NOT closed after reading, or exception thrown.
+     *
+     * @param is     the input stream to read from
+     * @param buffer the buffer to write to
+     * @param offset the offset in the buffer to start writing to
+     * @param length the number of bytes to read
+     * @throws IOException if an I/O error occurs
+     */
+    public static void readExact(@NotNull InputStream is, @NotNull byte[] buffer, int offset, int length) throws IOException {
+        Objects.requireNonNull(is, "is == null");
+        Objects.requireNonNull(buffer, "buffer == null");
+        if (offset < 0 || length < 0 || offset + length > buffer.length) {
+            throw new IndexOutOfBoundsException("offset: " + offset + ", length: " + length + ", buffer.length: " + buffer.length);
+        }
+        int remaining = length;
+        while (remaining > 0) {
+            int read = is.read(buffer, offset, remaining);
+            if (read < 0) {
+                throw new EOFException("Unexpected end of stream, expected " + remaining + " more bytes");
+            }
+            remaining -= read;
+            offset += read;
+        }
+    }
+
+    /**
+     * Read exact @{code length} bytes from RandomAccessFile at current position and stores them in a byte array.
+     * The RandomAccessFile is NOT closed after reading, or exception thrown.
+     *
+     * @param in     the RandomAccessFile to read from
+     * @param buffer the buffer to store the bytes in
+     * @param offset the offset in the buffer to start writing to
+     * @param length the number of bytes to read
+     * @throws IOException if an I/O error occurs
+     */
+    public static void readExact(@NotNull RandomAccessFile in, @NotNull byte[] buffer, int offset, int length) throws IOException {
+        Objects.requireNonNull(in, "in == null");
+        Objects.requireNonNull(buffer, "buffer == null");
+        if (offset < 0 || length < 0 || offset + length > buffer.length) {
+            throw new IndexOutOfBoundsException("offset: " + offset + ", length: " + length + ", buffer.length: " + buffer.length);
+        }
+        int remaining = length;
+        while (remaining > 0) {
+            int read = in.read(buffer, offset, remaining);
+            if (read < 0) {
+                throw new EOFException("Unexpected end of RandomAccessFile, expected " + remaining + " more bytes");
+            }
+            remaining -= read;
+            offset += read;
+        }
+    }
+
+    public static void skipExact(@NotNull InputStream is, long offset) throws IOException {
+        Objects.requireNonNull(is, "is == null");
+        long ret = is.skip(offset);
+        if (ret != offset) {
+            throw new IOException("Failed to skip " + offset + " bytes, got " + ret);
+        }
     }
 
     /**
