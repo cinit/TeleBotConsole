@@ -223,6 +223,12 @@ class Bot internal constructor(
 
     private fun handleUpdateUser(event: String): Boolean {
         val userObj = JsonParser.parseString(event).asJsonObject.getAsJsonObject("user")
+        updateUserInfo(userObj)
+        return true
+    }
+
+    private fun updateUserInfo(userObj: JsonObject): User {
+        TlRpcJsonObject.checkTypeNonNull(userObj, "user")
         val uid = userObj.get("id").asLong
         val firstName = userObj.get("first_name").asString
         val lastName = userObj.get("last_name").asString
@@ -239,13 +245,14 @@ class Bot internal constructor(
         if (languageCode.isNotEmpty()) {
             user.languageCode = languageCode
         }
+        user.isKnown = true
         if (uid > 0 && uid == this.userId) {
             this.firstName = firstName
             this.lastName = lastName.ifEmpty { null }
             this.phoneNumber = phoneNumber.ifEmpty { null }
             this.username = username.ifEmpty { null }
         }
-        return true
+        return user
     }
 
     private fun handleUpdateDeleteMessages(event: String): Boolean {
@@ -954,6 +961,48 @@ class Bot internal constructor(
         } else {
             val obj = JsonParser.parseString(result).asJsonObject
             TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+        }
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun resolveMessage(chatId: Long, msgId: Long, invalidate: Boolean = false): Message {
+        val request = JsonObject().apply {
+            addProperty("@type", "getMessage")
+            addProperty("chat_id", chatId)
+            addProperty("message_id", msgId)
+        }
+        val result = executeRequest(request.toString(), server.defaultTimeout)
+        if (result == null) {
+            throw IOException("Timeout executing getMessage request")
+        } else {
+            val obj = JsonParser.parseString(result).asJsonObject
+            TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+            return Message.fromJsonObject(obj)
+        }
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun resolveUser(userId: Long, invalidate: Boolean = false): User {
+        if (userId <= 0) {
+            throw IllegalArgumentException("userId $userId is not valid")
+        }
+        if (!invalidate) {
+            val cached = server.getCachedUserWithUserId(userId)
+            if (cached != null && cached.isKnown) {
+                return cached
+            }
+        }
+        val request = JsonObject().apply {
+            addProperty("@type", "getUser")
+            addProperty("user_id", userId)
+        }
+        val result = executeRequest(request.toString(), server.defaultTimeout)
+        if (result == null) {
+            throw IOException("Timeout executing getUser request")
+        } else {
+            val obj = JsonParser.parseString(result).asJsonObject
+            TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+            return updateUserInfo(obj)
         }
     }
 

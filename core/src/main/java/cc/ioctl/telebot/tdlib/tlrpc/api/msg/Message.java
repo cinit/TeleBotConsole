@@ -13,6 +13,8 @@ public class Message extends TlRpcJsonObject {
     @TlRpcField("id")
     public long id;
 
+    public long serverMsgId;
+
     @TlRpcField("sender_id")
     public JsonObject senderId;
 
@@ -125,6 +127,12 @@ public class Message extends TlRpcJsonObject {
 
     public static Message fromJsonObject(@NotNull JsonObject obj) throws ReflectiveOperationException {
         Message message = TlRpcJsonObject.fromJsonObject(Message.class, obj);
+        // update several field
+        if ((message.id & (1 << 20 - 1)) == 0) {
+            message.serverMsgId = message.id >> 20;
+        } else {
+            message.serverMsgId = 0;
+        }
         // update senderUserId
         String senderType = message.senderId.get("@type").getAsString();
         switch (senderType) {
