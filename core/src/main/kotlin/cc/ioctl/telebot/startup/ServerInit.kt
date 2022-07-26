@@ -79,8 +79,11 @@ object ServerInit {
         // login bots
         runBlocking {
             for (botToken in standBotTokens) {
-                val bot = server.createNewBot()
                 val uid = botToken.split(":")[0].toLong()
+                if (uid < 0) {
+                    throw IllegalArgumentException("bot_token is invalid: $botToken")
+                }
+                val bot = server.createNewBot("b_$uid")
                 Log.i(TAG, "Logging in bot $uid with token.")
                 bot.loginWithBotTokenSuspended(botToken)
             }

@@ -47,7 +47,7 @@ public class BotStartupMain {
             System.exit(1);
             return;
         }
-        File workingDir = new File(workingDirPath);
+        File workingDir = new File(workingDirPath).getAbsoluteFile();
         if (!workingDir.exists() || !workingDir.isDirectory()) {
             System.out.println("Working directory is not a directory or does not exist: " + workingDirPath);
             System.exit(1);

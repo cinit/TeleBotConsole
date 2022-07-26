@@ -6,6 +6,7 @@ import cc.ioctl.telebot.tdlib.RobotServer
 import cc.ioctl.telebot.tdlib.tlrpc.RemoteApiException
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject
 import cc.ioctl.telebot.tdlib.tlrpc.api.InputFile
+import cc.ioctl.telebot.tdlib.tlrpc.api.auth.SetTdlibParameters
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.FormattedText
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.Message
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.ReplyMarkup
@@ -24,7 +25,8 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class Bot internal constructor(
     val server: RobotServer,
-    val clientIndex: Int
+    val clientIndex: Int,
+    designator: String
 ) : Account() {
 
     companion object {
@@ -53,8 +55,14 @@ class Bot internal constructor(
 
     private val mListenerLock = Any()
 
+    private val mDataBaseDir = File(server.tdlibDir, designator)
+
     private val mOnRecvMsgListeners = HashSet<EventHandler.MessageListenerV1>(1)
     private val mCallbackQueryListeners = HashSet<EventHandler.CallbackQueryListenerV1>(1)
+
+    init {
+        IoUtils.mkdirsOrThrow(mDataBaseDir)
+    }
 
     internal data class TransientMessageHolder(
         val chatId: Long,
@@ -580,10 +588,11 @@ class Bot internal constructor(
     }
 
     private suspend fun sendTdLibParameters() {
-        val param = server.defaultTDLibParameters.toJsonObject()
+        val param = SetTdlibParameters.Parameter(server.defaultTDLibParametersTemplate)
+        param.databaseDirectory = mDataBaseDir.absolutePath
         val request = JsonObject()
         request.addProperty("@type", "setTdlibParameters")
-        request.add("parameters", param)
+        request.add("parameters", param.toJsonObject())
         executeRequestWaitExpectSuccess(request.toString(), 1000)
     }
 

@@ -2,6 +2,7 @@ package cc.ioctl.telebot.tdlib.tlrpc.api.auth;
 
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcField;
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject;
+import org.jetbrains.annotations.NotNull;
 
 public class SetTdlibParameters extends TlRpcJsonObject {
 
@@ -70,6 +71,20 @@ public class SetTdlibParameters extends TlRpcJsonObject {
             this.applicationVersion = applicationVersion;
             this.enableStorageOptimizer = enableStorageOptimizer;
             this.useTestDC = useTestDC;
+        }
+
+        public Parameter(@NotNull Parameter other) {
+            super();
+            this.databaseDirectory = other.databaseDirectory;
+            this.useMessageDatabase = other.useMessageDatabase;
+            this.useSecretChats = other.useSecretChats;
+            this.apiId = other.apiId;
+            this.apiHash = other.apiHash;
+            this.systemLanguageCode = other.systemLanguageCode;
+            this.deviceModel = other.deviceModel;
+            this.applicationVersion = other.applicationVersion;
+            this.enableStorageOptimizer = other.enableStorageOptimizer;
+            this.useTestDC = other.useTestDC;
         }
     }
 }

@@ -27,14 +27,15 @@ class RobotServer private constructor(val baseDir: File) {
     val isRunning: Boolean get() = !mShuttingDown
     val serverConfigDir = File(baseDir, "config")
     val pluginsDir = File(baseDir, "plugins")
+    val tdlibDir = File(baseDir, "tdlib")
     var defaultTimeout: Int = 30 * 1000
     val cachedObjectPool: NonLocalObjectCachePool = NonLocalObjectCachePool(this)
     val executor: ExecutorService = Executors.newCachedThreadPool()
 
     private val mLock = Any()
     private lateinit var mPollThread: Thread
-    private lateinit var mServerParameters: SetTdlibParameters.Parameter
-    val defaultTDLibParameters: SetTdlibParameters.Parameter get() = mServerParameters
+    private lateinit var mServerParametersTemplate: SetTdlibParameters.Parameter
+    val defaultTDLibParametersTemplate: SetTdlibParameters.Parameter get() = mServerParametersTemplate
 
     private var mShuttingDown = false
     private val mSequence: AtomicLong = AtomicLong(1)
@@ -49,7 +50,6 @@ class RobotServer private constructor(val baseDir: File) {
             throw IllegalArgumentException("apiHash must be a 40-character lowercase hex string")
         }
         IoUtils.mkdirsOrThrow(pluginsDir)
-        val tdlibDir = File(baseDir, "tdlib")
         IoUtils.mkdirsOrThrow(tdlibDir)
         synchronized(mLock) {
             if (::mPollThread.isInitialized) {
@@ -66,8 +66,8 @@ class RobotServer private constructor(val baseDir: File) {
                     Log.e("RobotServer", "Failed to set TDLib log verbosity level to WARNING, $result")
                 }
             }
-            mServerParameters = SetTdlibParameters.Parameter(
-                tdlibDir.absolutePath,
+            mServerParametersTemplate = SetTdlibParameters.Parameter(
+                File(tdlibDir, "no_such_dir").absolutePath,
                 false, false,
                 apiId, apiHash,
                 "en", "Server", "1.0",
@@ -188,13 +188,19 @@ class RobotServer private constructor(val baseDir: File) {
         return mSequence.getAndIncrement()
     }
 
-    fun createNewBot(): Bot {
+    fun createNewBot(designator: String): Bot {
+        if (designator.isEmpty()) {
+            throw IllegalArgumentException("designator must not be empty")
+        }
+        if (!designator.matches(Regex("[a-zA-Z0-9_]+"))) {
+            throw IllegalArgumentException("designator must be a-zA-Z0-9_")
+        }
         synchronized(mLock) {
             val index = NativeBridge.nativeTDLibCreateClient()
             if (index < 0) {
                 throw IllegalStateException("Failed to create new bot: returned index $index")
             }
-            val bot = Bot(this, index)
+            val bot = Bot(this, index, designator)
             mLocalBots[index] = bot
             // new created bot is not yet authorized, so we don't need to add it to the uid map
             return bot
@@ -335,6 +341,9 @@ class RobotServer private constructor(val baseDir: File) {
         @JvmStatic
         @Synchronized
         fun createInstance(workingDir: File): RobotServer {
+            if (!workingDir.isAbsolute) {
+                throw IllegalArgumentException("workingDir must be an absolute path")
+            }
             return if (sInstance == null) {
                 val server = RobotServer(workingDir)
                 sInstance = server
