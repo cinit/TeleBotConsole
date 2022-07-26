@@ -352,17 +352,17 @@ class Bot internal constructor(
     }
 
     private fun handleUpdateNewMessage(event: String): Boolean {
-        val obj = JsonParser.parseString(event).asJsonObject.getAsJsonObject("message")
-        val msgId = obj.get("id").asLong
-        val chatId = obj.get("chat_id").asLong
-        val isOutgoing = obj.get("is_outgoing").asBoolean
+        val msg = Message.fromJsonObject(JsonParser.parseString(event).asJsonObject.getAsJsonObject("message"))
+        val msgId = msg.id
+        val chatId = msg.chatId
+        val isOutgoing = msg.isOutgoing
         if (isOutgoing) {
             return true
         }
-        val senderId = getSenderId(obj["sender_id"].asJsonObject)
+        val senderId = getSenderId(msg.senderId)
         // call listeners
         for (listener in mOnRecvMsgListeners) {
-            listener.onReceiveMessage(this, chatId, senderId, obj)
+            listener.onReceiveMessage(this, chatId, senderId, msg)
         }
         return true
     }
