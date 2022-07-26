@@ -10,6 +10,9 @@ object EventHandler {
         fun onDeleteMessages(bot: Bot, chatId: Long, msgIds: List<Long>): Boolean
         fun onUpdateMessageContent(bot: Bot, chatId: Long, msgId: Long, content: JsonObject): Boolean
         fun onMessageEdited(bot: Bot, chatId: Long, msgId: Long, editDate: Int): Boolean
+        fun onMessagePinned(bot: Bot, chatId: Long, msgId: Long, isPinned: Boolean): Boolean {
+            return false
+        }
     }
 
     interface CallbackQueryListenerV1 {

@@ -172,6 +172,9 @@ class Bot internal constructor(
             "updateMessageSendFailed" -> {
                 handleUpdateMessageSendFailed(event)
             }
+            "updateMessageIsPinned" -> {
+                handleUpdateMessageIsPinned(event)
+            }
             "updateNewCallbackQuery" -> {
                 handleUpdateNewCallbackQuery(event)
             }
@@ -381,6 +384,17 @@ class Bot internal constructor(
         val editDate = obj.get("edit_date").asInt
         for (listener in mOnRecvMsgListeners) {
             listener.onMessageEdited(this, chatId, msgId, editDate)
+        }
+        return true
+    }
+
+    private fun handleUpdateMessageIsPinned(event: String): Boolean {
+        val obj = JsonParser.parseString(event).asJsonObject
+        val chatId = obj.get("chat_id").asLong
+        val msgId = obj.get("message_id").asLong
+        val isPinned = obj.get("is_pinned").asBoolean
+        for (listener in mOnRecvMsgListeners) {
+            listener.onMessagePinned(this, chatId, msgId, isPinned)
         }
         return true
     }
