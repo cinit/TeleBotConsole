@@ -4,10 +4,13 @@ import java.io.ByteArrayOutputStream
 plugins {
     kotlin("jvm") version "1.7.10"
     application
+    id("com.github.johnrengelman.shadow") version "7.1.2"
 }
 
 group = "cc.ioctl.telebotconsole"
 version = "1.0"
+
+val jarMainClassName = "cc.ioctl.telebot.BotStartupMain"
 
 repositories {
     mavenCentral()
@@ -42,6 +45,13 @@ tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "11"
     // freeCompilerArgs = listOf("-Xno-param-assertions")
     // Don't generate not-null assertions on parameters of methods accessible from Java
+}
+
+tasks.shadowJar {
+    manifest.attributes.apply {
+        put("Implementation-Version", archiveVersion)
+        put("Main-Class", jarMainClassName)
+    }
 }
 
 val generateJniHeaders: Task by tasks.creating {
@@ -176,5 +186,5 @@ val generateJniHeaders: Task by tasks.creating {
 }
 
 application {
-    mainClass.set("cc.ioctl.telebot.BotStartupMain")
+    mainClass.set(jarMainClassName)
 }
