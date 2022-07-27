@@ -31,6 +31,23 @@ class Bot internal constructor(
 
     companion object {
         private const val TAG = "Bot"
+        private const val CHAT_ID_NEGATIVE_NOTATION = -1000000000000L
+
+        @JvmStatic
+        fun chatIdToGroupId(chatId: Long): Long {
+            if (chatId > CHAT_ID_NEGATIVE_NOTATION) {
+                throw IllegalArgumentException("chatId $chatId is not a group chat id")
+            }
+            return -chatId + CHAT_ID_NEGATIVE_NOTATION
+        }
+
+        @JvmStatic
+        fun groupIdToChatId(groupId: Long): Long {
+            if (groupId <= 0) {
+                throw IllegalArgumentException("groupId $groupId is not a group chat id")
+            }
+            return -groupId + CHAT_ID_NEGATIVE_NOTATION
+        }
     }
 
     override var userId: Long = 0L
@@ -58,6 +75,8 @@ class Bot internal constructor(
     private val mDataBaseDir = File(server.tdlibDir, designator)
 
     private val mOnRecvMsgListeners = HashSet<EventHandler.MessageListenerV1>(1)
+    private val mOnGroupEventListeners = HashSet<EventHandler.GroupPermissionListenerV1>(1)
+    private val mGroupMemberJoinRequestListenerV1 = HashSet<EventHandler.GroupMemberJoinRequestListenerV1>(1)
     private val mCallbackQueryListeners = HashSet<EventHandler.CallbackQueryListenerV1>(1)
 
     init {
@@ -161,12 +180,18 @@ class Bot internal constructor(
             "updateMessageEdited" -> {
                 handleUpdateMessageEdited(event)
             }
-            "updateGroup",
+            "updateBasicGroup",
             "updateSupergroup" -> {
                 handleUpdateTypedGroup(event, type)
             }
             "updateNewChat" -> {
                 handleUpdateNewChat(event)
+            }
+            "updateChatTitle" -> {
+                handleUpdateChatTitle(event)
+            }
+            "updateChatPermissions" -> {
+                handleUpdateChatPermissions(event)
             }
             "updateUserStatus" -> {
                 handleUpdateUserStatus(event)
@@ -185,6 +210,12 @@ class Bot internal constructor(
             }
             "updateNewCallbackQuery" -> {
                 handleUpdateNewCallbackQuery(event)
+            }
+            "updateChatMember" -> {
+                handleUpdateChatMember(event)
+            }
+            "updateNewChatJoinRequest" -> {
+                handleUpdateNewChatJoinRequest(event)
             }
             "updateSelectedBackground",
             "updateFileDownloads",
@@ -205,20 +236,53 @@ class Bot internal constructor(
     }
 
     private fun handleUpdateTypedGroup(event: String, type: String): Boolean {
-        if (type != "updateGroup" && type != "updateSupergroup") {
-            Log.e(TAG, "handleUpdateTypedGroup: unexpected type: $type, event: $event")
-            return false
+        when (type) {
+            "updateSupergroup" -> {
+                val supergroup = JsonParser.parseString(event).asJsonObject.getAsJsonObject("supergroup")
+                val uid = supergroup.get("id").asLong
+                val username = supergroup.get("username").asString
+                val group = server.getOrNewGroup(uid, this)
+                group.isSuperGroup = true
+                group.username = username.ifEmpty { null }
+                return true
+            }
+            "updateBasicGroup" -> {
+                val basicGroup = JsonParser.parseString(event).asJsonObject.getAsJsonObject("basic_group")
+                val uid = basicGroup.get("id").asLong
+                Log.d(TAG, "handleUpdateTypedGroup: basicGroup: $basicGroup")
+                return true
+            }
+            else -> {
+                Log.e(TAG, "handleUpdateTypedGroup: unexpected type: $type, event: $event")
+                return false
+            }
         }
-        val isSupergroup = type == "updateSupergroup"
-        if (isSupergroup) {
-            val supergroup = JsonParser.parseString(event).asJsonObject.getAsJsonObject("supergroup")
-            val uid = supergroup.get("id").asLong
-            val username = supergroup.get("username").asString
-            val group = server.getOrNewGroup(uid, this)
-            group.isSuperGroup = true
-            group.username = username.ifEmpty { null }
+    }
+
+    private fun handleUpdateChatTitle(event: String): Boolean {
+        val event = JsonParser.parseString(event).asJsonObject
+        val chatId = event.get("chat_id").asLong
+        val title = event.get("title").asString
+        Log.d(TAG, "handleUpdateChatTitle: chatId: $chatId, title: $title")
+        if (chatId > CHAT_ID_NEGATIVE_NOTATION) {
+            Log.e(TAG, "handleUpdateChatTitle: chatId > CHAT_ID_NEGATIVE_NOTATION, chatId: $chatId")
         } else {
-            Log.e(TAG, "non-supergroup group: $event")
+            val gid = (chatId - CHAT_ID_NEGATIVE_NOTATION)
+            val cachedGroup = server.getCachedGroupWithGroupId(gid)
+            if (cachedGroup != null) {
+                cachedGroup.name = title
+            }
+        }
+        return true
+    }
+
+    private fun handleUpdateChatPermissions(event: String): Boolean {
+        val obj = JsonParser.parseString(event).asJsonObject
+        val chatId = obj.get("chat_id").asLong
+        val permissions = obj.get("permissions").asJsonObject
+        Log.d(TAG, "handleUpdateChatPermissions: chatId: $chatId, permissions: $permissions")
+        for (listener in mOnGroupEventListeners) {
+            listener.onChatPermissionsChanged(this, chatId, permissions)
         }
         return true
     }
@@ -414,6 +478,26 @@ class Bot internal constructor(
         return true
     }
 
+    private fun handleUpdateChatMember(event: String): Boolean {
+        val obj = JsonParser.parseString(event).asJsonObject
+        val chatId = obj.get("chat_id").asLong
+        val userId = obj.get("actor_user_id").asLong
+        for (listener in mOnGroupEventListeners) {
+            listener.onMemberStatusChanged(this, chatId, userId, obj)
+        }
+        return true
+    }
+
+    private fun handleUpdateNewChatJoinRequest(event: String): Boolean {
+        val obj = JsonParser.parseString(event).asJsonObject
+        val chatId = obj.get("chat_id").asLong
+        val userId = obj.get("request").asJsonObject.get("user_id").asLong
+        for (listener in mGroupMemberJoinRequestListenerV1) {
+            listener.onMemberJoinRequest(this, chatId, userId, obj)
+        }
+        return true
+    }
+
     private fun getSenderId(obj: JsonObject): Long {
         return when (val type = obj.get("@type").asString) {
             "messageSenderUser" -> {
@@ -430,19 +514,19 @@ class Bot internal constructor(
 
     private fun handleUpdateNewChat(event: String): Boolean {
         val chat = JsonParser.parseString(event).asJsonObject.getAsJsonObject("chat")
+        updateChatInfo(chat)
+        return true
+    }
+
+    private fun updateChatInfo(chat: JsonObject): JsonObject {
+        TlRpcJsonObject.checkTypeNonNull(chat, "chat")
         val chatId = chat.get("id").asLong
         val name = chat.get("title").asString
         val typeImpl = chat["type"].asJsonObject
         when (val chatType = typeImpl.get("@type").asString) {
-            "chatTypeSupergroup" -> {
-                val gid = typeImpl["supergroup_id"].asLong
-                val group = server.getOrNewGroup(gid, this)
-                group.isSuperGroup = true
-                group.name = name
-                val photo = chat.getAsJsonObject("photo")
-                if (photo != null) {
-                    group.photo = RemoteFile.fromJsonObject(photo["small"].asJsonObject)
-                }
+            "chatTypeSupergroup",
+            "chatTypeBasicGroup" -> {
+                updateGroupFromChat(chat)
             }
             "chatTypePrivate" -> {
                 val uid = typeImpl["user_id"].asLong
@@ -450,10 +534,48 @@ class Bot internal constructor(
                 user.defaultChatId = chatId
             }
             else -> {
-                Log.e(TAG, "handleUpdateNewChat: unexpected chat type: $chatType, event: $event")
+                Log.e(TAG, "handleUpdateNewChat: unexpected chat type: $chatType, chatId=$chatId")
             }
         }
-        return true
+        return chat
+    }
+
+    private fun updateGroupFromChat(chatObj: JsonObject): Group {
+        TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        val chatType = chatObj.get("type").asJsonObject.get("@type").asString
+        val chatId = chatObj.get("id").asLong
+        val name = chatObj.get("title").asString
+        val typeImpl = chatObj["type"].asJsonObject
+        when (chatType) {
+            "chatTypeSupergroup" -> {
+                val gid = typeImpl["supergroup_id"].asLong
+                if (chatId != -gid + CHAT_ID_NEGATIVE_NOTATION) {
+                    throw AssertionError("chatId=$chatId, gid=$gid")
+                }
+                val group = server.getOrNewGroup(gid, this)
+                group.isSuperGroup = true
+                group.name = name
+                val photo = chatObj.getAsJsonObject("photo")
+                if (photo != null) {
+                    group.photo = RemoteFile.fromJsonObject(photo["small"].asJsonObject)
+                }
+                return group
+            }
+            "chatTypeBasicGroup" -> {
+                val gid = typeImpl["basic_group_id"].asLong
+                if (chatId != -gid + CHAT_ID_NEGATIVE_NOTATION) {
+                    throw AssertionError("chatId=$chatId, gid=$gid")
+                }
+                val group = server.getOrNewGroup(gid, this)
+                group.isSuperGroup = false
+                group.name = name
+                // photo is unknown yet
+                return group
+            }
+            else -> {
+                throw IllegalArgumentException("updateGroupFromChat: unexpected chat type: $chatType, event: $chatObj")
+            }
+        }
     }
 
     private fun handleUpdateUserStatus(event: String): Boolean {
@@ -679,6 +801,18 @@ class Bot internal constructor(
         }
     }
 
+    fun registerGroupEventListener(listener: EventHandler.GroupPermissionListenerV1) {
+        synchronized(mListenerLock) {
+            mOnGroupEventListeners.add(listener)
+        }
+    }
+
+    fun unregisterGroupEventListener(listener: EventHandler.GroupPermissionListenerV1) {
+        synchronized(mListenerLock) {
+            mOnGroupEventListeners.remove(listener)
+        }
+    }
+
     fun registerCallbackQueryListener(listener: EventHandler.CallbackQueryListenerV1) {
         synchronized(mListenerLock) {
             mCallbackQueryListeners.add(listener)
@@ -688,6 +822,18 @@ class Bot internal constructor(
     fun unregisterCallbackQueryListener(listener: EventHandler.CallbackQueryListenerV1) {
         synchronized(mListenerLock) {
             mCallbackQueryListeners.remove(listener)
+        }
+    }
+
+    fun registerGroupMemberJoinRequestListenerV1(listener: EventHandler.GroupMemberJoinRequestListenerV1) {
+        synchronized(mListenerLock) {
+            mGroupMemberJoinRequestListenerV1.add(listener)
+        }
+    }
+
+    fun unregisterGroupMemberJoinRequestListenerV1(listener: EventHandler.GroupMemberJoinRequestListenerV1) {
+        synchronized(mListenerLock) {
+            mGroupMemberJoinRequestListenerV1.remove(listener)
         }
     }
 
@@ -1012,6 +1158,79 @@ class Bot internal constructor(
             val obj = JsonParser.parseString(result).asJsonObject
             TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
             return updateUserInfo(obj)
+        }
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun resolveGroup(groupId: Long, invalidate: Boolean = false): Group {
+        if (groupId <= 0) {
+            throw IllegalArgumentException("groupId $groupId is not valid")
+        }
+        if (!invalidate) {
+            val cached = server.getCachedGroupWithGroupId(groupId)
+            if (cached != null && cached.isKnown) {
+                return cached
+            }
+        }
+        // currently, we don't know whether it is a basic group or supergroup
+        val request1 = JsonObject().apply {
+            addProperty("@type", "getChat")
+            val chatId = -groupId + CHAT_ID_NEGATIVE_NOTATION
+            addProperty("chat_id", chatId)
+        }
+        val result1 = executeRequest(request1.toString(), server.defaultTimeout)
+            ?: throw IOException("Timeout executing getChat request")
+        val chatObj = JsonParser.parseString(result1).asJsonObject
+        TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
+        TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        return when (val chatType = chatObj.get("type").asJsonObject.get("@type").asString) {
+            "chatTypeBasicGroup" -> {
+                updateGroupFromChat(chatObj)
+            }
+            "chatTypeSupergroup" -> {
+                updateGroupFromChat(chatObj)
+            }
+            else -> throw IllegalArgumentException("Unknown chat type: $chatType")
+        }
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun resolveChat(chatId: Long, invalidate: Boolean = false): JsonObject {
+        if (chatId == 0L) {
+            throw IllegalArgumentException("chatId $chatId is not valid")
+        }
+        val request1 = JsonObject().apply {
+            addProperty("@type", "getChat")
+            addProperty("chat_id", chatId)
+        }
+        val result1 = executeRequest(request1.toString(), server.defaultTimeout)
+            ?: throw IOException("Timeout executing getChat request")
+        val chatObj = JsonParser.parseString(result1).asJsonObject
+        TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
+        TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        return chatObj
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun processChatJoinRequest(chatId: Long, userId: Long, approve: Boolean) {
+        if (chatId > CHAT_ID_NEGATIVE_NOTATION) {
+            throw IllegalArgumentException("chatId $chatId is not a valid group chat id")
+        }
+        if (userId <= 0) {
+            throw IllegalArgumentException("userId $userId is not a valid user id")
+        }
+        val request = JsonObject().apply {
+            addProperty("@type", "processChatJoinRequest")
+            addProperty("chat_id", chatId)
+            addProperty("user_id", userId)
+            addProperty("approve", approve)
+        }
+        val result = executeRequest(request.toString(), server.defaultTimeout)
+        if (result == null) {
+            throw IOException("Timeout executing processChatJoinRequest request")
+        } else {
+            val obj = JsonParser.parseString(result).asJsonObject
+            TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
         }
     }
 

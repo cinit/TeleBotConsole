@@ -16,6 +16,33 @@ object EventHandler {
         }
     }
 
+    interface GroupPermissionListenerV1 {
+        /**
+         * @param bot the bot that received the event
+         * @param chatId the chat id of the group, negative number starting with '-100'
+         * @param userId the anchor user id of the event
+         * @param event the updateChatMember object
+         */
+        fun onMemberStatusChanged(bot: Bot, chatId: Long, userId: Long, event: JsonObject): Boolean
+
+        /**
+         * @param bot the bot that received the event
+         * @param chatId the chat id of the group, negative number starting with '-100'
+         * @param perm the chatPermissions object
+         */
+        fun onChatPermissionsChanged(bot: Bot, chatId: Long, permissions: JsonObject): Boolean
+    }
+
+    interface GroupMemberJoinRequestListenerV1 {
+        /**
+         * @param bot the bot that received the event
+         * @param chatId the chat id of the group, negative number starting with '-100'
+         * @param userId the user id requesting to join the group
+         * @param event the updateNewChatJoinRequest object
+         */
+        fun onMemberJoinRequest(bot: Bot, chatId: Long, userId: Long, event: JsonObject): Boolean
+    }
+
     interface CallbackQueryListenerV1 {
         fun onCallbackQuery(
             bot: Bot,
