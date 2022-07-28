@@ -268,9 +268,9 @@ class Bot internal constructor(
         val title = event.get("title").asString
         Log.d(TAG, "handleUpdateChatTitle: chatId: $chatId, title: $title")
         if (chatId > CHAT_ID_NEGATIVE_NOTATION) {
-            Log.e(TAG, "handleUpdateChatTitle: chatId > CHAT_ID_NEGATIVE_NOTATION, chatId: $chatId")
+            Log.d(TAG, "handleUpdateChatTitle: chatId > CHAT_ID_NEGATIVE_NOTATION, chatId: $chatId")
         } else {
-            val gid = (chatId - CHAT_ID_NEGATIVE_NOTATION)
+            val gid = chatIdToGroupId(chatId)
             val cachedGroup = server.getCachedGroupWithGroupId(gid)
             if (cachedGroup != null) {
                 cachedGroup.name = title
