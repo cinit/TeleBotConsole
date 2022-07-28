@@ -217,6 +217,9 @@ class Bot internal constructor(
             "updateNewChatJoinRequest" -> {
                 handleUpdateNewChatJoinRequest(event)
             }
+            "updateChatPhoto" -> {
+                handleUpdateChatPhoto(event)
+            }
             "updateSelectedBackground",
             "updateFileDownloads",
             "updateChatThemes",
@@ -273,6 +276,13 @@ class Bot internal constructor(
                 cachedGroup.name = title
             }
         }
+        return true
+    }
+
+    private fun handleUpdateChatPhoto(event: String): Boolean {
+        val event = JsonParser.parseString(event).asJsonObject
+        val chatId = event.get("chat_id").asLong
+        Log.d(TAG, "handleUpdateChatPhoto: chatId: $chatId")
         return true
     }
 
