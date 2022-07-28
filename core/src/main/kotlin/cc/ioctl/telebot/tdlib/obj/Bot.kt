@@ -466,7 +466,7 @@ class Bot internal constructor(
     }
 
     private fun handleUpdateFile(event: String): Boolean {
-        Log.d(TAG, "handleUpdateFile: $event")
+        // Log.v(TAG, "handleUpdateFile: $event")
         return true
     }
 
