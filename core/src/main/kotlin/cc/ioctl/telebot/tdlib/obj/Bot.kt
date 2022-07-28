@@ -386,12 +386,14 @@ class Bot internal constructor(
         val senderId = msg.senderId
         val chatId = msg.chatId
         val oldMsgId = update.get("old_message_id").asLong
+        var hasOwner = false
         synchronized(mTransientMessageLock) {
             val key = "${chatId}_${oldMsgId}"
             val holder = mTransientMessages[key]
             if (holder != null) {
                 holder.newMessage = msg
                 val lock = holder.lock
+                hasOwner = true
                 if (lock.isLocked) {
                     lock.unlock()
                 } else {
@@ -399,9 +401,11 @@ class Bot internal constructor(
                 }
             }
         }
-        val logMsg = "handleUpdateMessageSendSucceeded: " +
-                "chatId=$chatId, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
-        Log.d(TAG, logMsg)
+        if (!hasOwner) {
+            val logMsg = "handleUpdateMessageSendSucceeded but no owner: " +
+                    "chatId=$chatId, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
+            Log.d(TAG, logMsg)
+        }
         return true
     }
 
