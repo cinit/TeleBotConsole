@@ -708,7 +708,7 @@ class Bot internal constructor(
     private fun handleUpdateOption(event: String): Boolean {
         val name = JsonParser.parseString(event).asJsonObject.get("name").asString
         val value = JsonParser.parseString(event).asJsonObject.get("value").asJsonObject
-        Log.d(TAG, "handleUpdateOption: $event")
+        // Log.v(TAG, "handleUpdateOption: $event")
         when (name) {
             "my_id" -> {
                 userId = value.get("value").asLong
