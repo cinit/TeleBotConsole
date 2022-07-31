@@ -27,7 +27,7 @@ include_directories(${JAVA_INCLUDE_PATH1})
 include_directories(${JAVA_INCLUDE_PATH2})
 
 add_subdirectory(../../../../libs/mmkv/src/main/cpp mmkv_static)
-add_subdirectory(external/td)
+add_subdirectory(../../../../libs/td td_build)
 
 add_library(tdjni SHARED
 

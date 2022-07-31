@@ -2,5 +2,5 @@
 	path = libs/mmkv/src/main/cpp/MMKV
 	url = https://github.com/Tencent/MMKV
 [submodule "src/main/cpp/external/td"]
-	path = core/src/main/cpp/external/td
+	path = libs/td
 	url = https://github.com/tdlib/td.git
