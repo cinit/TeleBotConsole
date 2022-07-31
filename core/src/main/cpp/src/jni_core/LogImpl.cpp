@@ -34,39 +34,57 @@ void defaultLogHandler(Log::Level level, const char *tag, const char *msg) {
     int min = tm->tm_min;
     int sec = tm->tm_sec;
     int usec = int(tv.tv_usec);
-    const char *tagString = nullptr;
+    const char *tagString;
+    const char *colorStart;
+    const char *colorEnd;
     if (LoggerOutputImpl_mEnableVt100) {
         switch (level) {
             case Log::Level::VERBOSE: {
-                tagString = VT100_COLOR_GREY "[VERBOSE]" VT100_COLOR_NORMAL;
+                tagString = "[VERBOSE]";
+                colorStart = VT100_COLOR_GREY;
+                colorEnd = VT100_COLOR_NORMAL;
                 break;
             }
             case Log::Level::DEBUG: {
                 tagString = "[ DEBUG ]";
+                colorStart = VT100_COLOR_GREEN;
+                colorEnd = VT100_COLOR_NORMAL;
                 break;
             }
             case Log::Level::INFO: {
-                tagString = VT100_COLOR_GREEN "[ INFO  ]" VT100_COLOR_NORMAL;
+                tagString = "[ INFO  ]";
+                colorStart = VT100_COLOR_BLUE;
+                colorEnd = VT100_COLOR_NORMAL;
                 break;
             }
             case Log::Level::WARN: {
-                tagString = VT100_COLOR_YELLOW "[ WARN  ]" VT100_COLOR_NORMAL;
+                tagString = "[ WARN  ]";
+                colorStart = VT100_COLOR_YELLOW;
+                colorEnd = VT100_COLOR_NORMAL;
                 break;
             }
             case Log::Level::ERROR: {
-                tagString = VT100_COLOR_RED "[ ERROR ]" VT100_COLOR_NORMAL;
+                tagString = "[ ERROR ]";
+                colorStart = VT100_COLOR_RED;
+                colorEnd = VT100_COLOR_NORMAL;
                 break;
             }
             case Log::Level::ASSERT: {
-                tagString = VT100_COLOR_RED "[ FATAL ]" VT100_COLOR_NORMAL;
+                tagString = "[ FATAL ]";
+                colorStart = VT100_COLOR_RED;
+                colorEnd = VT100_COLOR_NORMAL;
                 break;
             }
             default: {
-                tagString = VT100_COLOR_RED "[UNKNOWN]" VT100_COLOR_NORMAL;
+                tagString = "[UNKNOWN]";
+                colorStart = "";
+                colorEnd = "";
                 break;
             }
         }
     } else {
+        colorStart = "";
+        colorEnd = "";
         switch (level) {
             case Log::Level::VERBOSE: {
                 tagString = "[VERBOSE]";
@@ -100,7 +118,7 @@ void defaultLogHandler(Log::Level level, const char *tag, const char *msg) {
     }
     // assemble the log message
     // MM-DD HH:MM:SS LEVEL TAG MSG
-    snprintf(buf, len, "%02d-%02d %02d:%02d:%02d.%06d %s %s %s\n", month, day, hour, min, sec, usec, tagString, tag, msg);
+    snprintf(buf, len, "%s%02d-%02d %02d:%02d:%02d.%06d %s %s %s%s\n", colorStart, month, day, hour, min, sec, usec, tagString, tag, msg, colorEnd);
     // write to the fifo
     cli::Console &console = cli::Console::getInstance();
     console.printLine(buf);
