@@ -118,7 +118,7 @@ void defaultLogHandler(Log::Level level, const char *tag, const char *msg) {
     }
     // assemble the log message
     // MM-DD HH:MM:SS LEVEL TAG MSG
-    snprintf(buf, len, "%s%02d-%02d %02d:%02d:%02d.%06d %s %s %s%s\n", colorStart, month, day, hour, min, sec, usec, tagString, tag, msg, colorEnd);
+    snprintf(buf, len, "%s%02d-%02d %02d:%02d:%02d.%06d %s %s%s %s\n", colorStart, month, day, hour, min, sec, usec, tagString, tag, colorEnd, msg);
     // write to the fifo
     cli::Console &console = cli::Console::getInstance();
     console.printLine(buf);
