@@ -8,12 +8,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TokenBucket<T> {
 
     private static class TokenBucketEntry {
-        public long lastIncrement;
-        public int tokens;
+        private long lastIncrement;
+        private int tokens;
     }
 
     public final int maxTokens;
-    public final int incrementInterval; // in milliseconds for 1 token
+
+    /**
+     * in milliseconds for 1 token
+     */
+    public final int incrementInterval;
 
     private final ConcurrentHashMap<T, TokenBucketEntry> entries = new ConcurrentHashMap<>(4);
 
@@ -38,14 +42,12 @@ public class TokenBucket<T> {
         if (requestedTokens > maxTokens) {
             throw new IllegalArgumentException("requestedTokens = " + requestedTokens + " > maxTokens = " + maxTokens);
         }
-        entries.computeIfAbsent(key, k -> {
-            TokenBucketEntry entry = new TokenBucketEntry();
-            entry.lastIncrement = System.currentTimeMillis();
-            entry.tokens = maxTokens;
-            return entry;
+        TokenBucketEntry entry = entries.computeIfAbsent(key, k -> {
+            TokenBucketEntry ent = new TokenBucketEntry();
+            ent.lastIncrement = System.currentTimeMillis();
+            ent.tokens = maxTokens;
+            return ent;
         });
-        TokenBucketEntry entry = entries.get(key);
-        assert entry != null;
         synchronized (entry) {
             long now = System.currentTimeMillis();
             long elapsed = now - entry.lastIncrement;
