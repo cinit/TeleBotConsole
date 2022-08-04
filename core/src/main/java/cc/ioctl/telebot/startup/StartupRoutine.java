@@ -29,6 +29,9 @@ public class StartupRoutine {
                         @Nullable String socketProxy) {
         // set working directory
         System.out.println("Working directory: " + workingDir.getAbsolutePath());
+        // enable kotlin coroutines stacktrace recovery
+        System.setProperty("kotlinx.coroutines.debug", "on");
+        System.setProperty("kotlinx.coroutines.stacktrace.recovery", "true");
         System.setProperty("user.dir", workingDir.getAbsolutePath());
         // check file.encoding is UTF-8
         if (Charset.defaultCharset() != StandardCharsets.UTF_8) {
