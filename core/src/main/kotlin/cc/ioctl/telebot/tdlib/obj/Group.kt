@@ -24,6 +24,9 @@ class Group internal constructor(
     var photo: RemoteFile? = null
         internal set
 
+    override var isContentProtected: Boolean = false
+        internal set
+
     override var isKnown: Boolean = false
         internal set
 

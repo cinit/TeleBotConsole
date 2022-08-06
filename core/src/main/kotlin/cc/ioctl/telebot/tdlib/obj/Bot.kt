@@ -217,6 +217,9 @@ class Bot internal constructor(
             "updateNewChatJoinRequest" -> {
                 handleUpdateNewChatJoinRequest(event)
             }
+            "updateChatHasProtectedContent" -> {
+                handleUpdateChatHasProtectedContent(event)
+            }
             "updateChatPhoto" -> {
                 handleUpdateChatPhoto(event)
             }
@@ -467,6 +470,23 @@ class Bot internal constructor(
 
     private fun handleUpdateFile(event: String): Boolean {
         // Log.v(TAG, "handleUpdateFile: $event")
+        return true
+    }
+
+    private fun handleUpdateChatHasProtectedContent(event: String): Boolean {
+        val obj = JsonParser.parseString(event).asJsonObject
+        TlRpcJsonObject.checkTypeNonNull(obj, "updateChatHasProtectedContent")
+        val chatId = obj.get("chat_id").asLong
+        val hasProtectedContent = obj.get("has_protected_content").asBoolean
+        if (chatId < CHAT_ID_NEGATIVE_NOTATION) {
+            val groupId = chatIdToGroupId(chatId)
+            val group = server.getCachedGroupWithGroupId(groupId)
+            if (group != null) {
+                group.isContentProtected = hasProtectedContent
+            }
+        } else {
+            Log.e(TAG, "handleUpdateChatHasProtectedContent: chatId=$chatId is not a group")
+        }
         return true
     }
 

@@ -6,4 +6,6 @@ interface ChatSession {
 
     val chatId: Long
 
+    val isContentProtected: Boolean
+
 }

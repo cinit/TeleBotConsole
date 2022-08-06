@@ -15,4 +15,6 @@ class PrivateChatSession internal constructor(
 
     override val name: String get() = user.name
 
+    override val isContentProtected: Boolean = false
+
 }
