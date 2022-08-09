@@ -97,7 +97,7 @@ Java_cc_ioctl_telebot_intern_NativeBridge_nativeInit
     Log::setLogHandler(LogImpl::getLogHandler());
     MMKV::registerLogHandler(+[](MMKVLogLevel level, const char *file, int line, const char *function, MMKVLog_t message) {
         Log::Level lv;
-        std::string msg = message + " at " + function + "(" + file + ":" + std::to_string(line) + ")";
+        std::string msg = message + " #" + function + "(" + file + ":" + std::to_string(line) + ")";
         switch (level) {
             case MMKVLogDebug: {
                 lv = Log::Level::DEBUG;
