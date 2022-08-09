@@ -294,7 +294,7 @@ class Bot internal constructor(
         val chatId = obj.get("chat_id").asLong
         val permissions = obj.get("permissions").asJsonObject
         Log.d(TAG, "handleUpdateChatPermissions: chatId: $chatId, permissions: $permissions")
-        for (listener in mOnGroupEventListeners) {
+        for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
             listener.onChatPermissionsChanged(this, chatId, permissions)
         }
         return true
@@ -364,7 +364,7 @@ class Bot internal constructor(
                 }
             }
         }
-        for (listener in mOnRecvMsgListeners) {
+        for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
             listener.onDeleteMessages(this, chatId, messageIds)
         }
         return true
@@ -378,7 +378,7 @@ class Bot internal constructor(
         val msgId = callbackQuery.get("message_id").asLong
         // call listeners
         var handled = false
-        for (listener in mCallbackQueryListeners) {
+        for (listener in synchronized(mListenerLock) { mCallbackQueryListeners.toList() }) {
             if (listener.onCallbackQuery(this, callbackQuery, queryId, chatId, senderId, msgId)) {
                 handled = true
             }
@@ -457,7 +457,7 @@ class Bot internal constructor(
         }
         val senderId = getSenderId(msg.senderId)
         // call listeners
-        for (listener in mOnRecvMsgListeners) {
+        for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
             listener.onReceiveMessage(this, chatId, senderId, msg)
         }
         return true
@@ -469,7 +469,7 @@ class Bot internal constructor(
         val msgId = obj.get("message_id").asLong
         val content = obj.getAsJsonObject("new_content")
         // call listeners
-        for (listener in mOnRecvMsgListeners) {
+        for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
             listener.onUpdateMessageContent(this, chatId, msgId, content)
         }
         return true
@@ -502,7 +502,7 @@ class Bot internal constructor(
         val chatId = obj.get("chat_id").asLong
         val msgId = obj.get("message_id").asLong
         val editDate = obj.get("edit_date").asInt
-        for (listener in mOnRecvMsgListeners) {
+        for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
             listener.onMessageEdited(this, chatId, msgId, editDate)
         }
         return true
@@ -513,7 +513,7 @@ class Bot internal constructor(
         val chatId = obj.get("chat_id").asLong
         val msgId = obj.get("message_id").asLong
         val isPinned = obj.get("is_pinned").asBoolean
-        for (listener in mOnRecvMsgListeners) {
+        for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
             listener.onMessagePinned(this, chatId, msgId, isPinned)
         }
         return true
@@ -523,7 +523,7 @@ class Bot internal constructor(
         val obj = JsonParser.parseString(event).asJsonObject
         val chatId = obj.get("chat_id").asLong
         val userId = obj.get("actor_user_id").asLong
-        for (listener in mOnGroupEventListeners) {
+        for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
             listener.onMemberStatusChanged(this, chatId, userId, obj)
         }
         return true
@@ -533,7 +533,7 @@ class Bot internal constructor(
         val obj = JsonParser.parseString(event).asJsonObject
         val chatId = obj.get("chat_id").asLong
         val userId = obj.get("request").asJsonObject.get("user_id").asLong
-        for (listener in mGroupMemberJoinRequestListenerV1) {
+        for (listener in synchronized(mListenerLock) { mGroupMemberJoinRequestListenerV1.toList() }) {
             listener.onMemberJoinRequest(this, chatId, userId, obj)
         }
         return true
