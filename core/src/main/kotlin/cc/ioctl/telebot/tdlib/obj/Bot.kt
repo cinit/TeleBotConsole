@@ -31,7 +31,7 @@ class Bot internal constructor(
 
     companion object {
         private const val TAG = "Bot"
-        private const val CHAT_ID_NEGATIVE_NOTATION = -1000000000000L
+        const val CHAT_ID_NEGATIVE_NOTATION = -1000000000000L
 
         @JvmStatic
         fun chatIdToGroupId(chatId: Long): Long {
@@ -1249,6 +1249,30 @@ class Bot internal constructor(
         val chatObj = JsonParser.parseString(result1).asJsonObject
         TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
         TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        return chatObj
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun getGroupMember(groupId: Long, userId: Long): JsonObject {
+        if (groupId <= 0) {
+            throw IllegalArgumentException("groupId $groupId is not valid")
+        }
+        if (userId <= 0) {
+            throw IllegalArgumentException("userId $userId is not valid")
+        }
+        val request1 = JsonObject().apply {
+            addProperty("@type", "getChatMember")
+            addProperty("chat_id", groupIdToChatId(groupId))
+            add("member_id", JsonObject().apply {
+                addProperty("@type", "messageSenderUser")
+                addProperty("user_id", userId)
+            })
+        }
+        val result1 = executeRequest(request1.toString(), server.defaultTimeout)
+            ?: throw IOException("Timeout executing getChatMember request")
+        val chatObj = JsonParser.parseString(result1).asJsonObject
+        TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
+        TlRpcJsonObject.checkTypeNonNull(chatObj, "chatMember")
         return chatObj
     }
 
