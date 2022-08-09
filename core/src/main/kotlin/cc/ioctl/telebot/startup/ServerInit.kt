@@ -2,6 +2,7 @@ package cc.ioctl.telebot.startup
 
 import cc.ioctl.telebot.tdlib.RobotServer
 import cc.ioctl.telebot.plugin.PluginManager
+import cc.ioctl.telebot.tdlib.obj.Bot
 import cc.ioctl.telebot.util.IoUtils
 import cc.ioctl.telebot.util.Log
 import com.moandjiezana.toml.Toml
@@ -78,6 +79,7 @@ object ServerInit {
         }
         // login bots
         runBlocking {
+            val loginBots = ArrayList<Bot>(standBotTokens.size)
             for (botToken in standBotTokens) {
                 val uid = botToken.split(":")[0].toLong()
                 if (uid < 0) {
@@ -85,9 +87,20 @@ object ServerInit {
                 }
                 val bot = server.createNewBot("b_$uid")
                 Log.i(TAG, "Logging in bot $uid with token.")
-                bot.loginWithBotTokenSuspended(botToken)
+                if (bot.loginWithBotTokenSuspended(botToken) > 0) {
+                    loginBots.add(bot)
+                } else {
+                    Log.e(TAG, "Failed to login bot $uid with token.")
+                }
             }
             Log.i(TAG, "Login success")
+            // update bot info
+            loginBots.forEach { bot ->
+                bot.resolveUser(bot.userId)
+                if (bot.username.isNullOrEmpty()) {
+                    Log.e(TAG, "Bot $bot has no username")
+                }
+            }
         }
         // call plugins login finished
         PluginManager.callPluginsLoginFinished()

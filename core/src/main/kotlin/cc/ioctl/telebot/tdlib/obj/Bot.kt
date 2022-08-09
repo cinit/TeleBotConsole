@@ -337,6 +337,13 @@ class Bot internal constructor(
             this.phoneNumber = phoneNumber.ifEmpty { null }
             this.username = username.ifEmpty { null }
         }
+        // check whether uid match local bot
+        server.getBotWithUserId(uid)?.let { that ->
+            that.firstName = firstName
+            that.lastName = lastName.ifEmpty { null }
+            that.phoneNumber = phoneNumber.ifEmpty { null }
+            that.username = username.ifEmpty { null }
+        }
         return user
     }
 
