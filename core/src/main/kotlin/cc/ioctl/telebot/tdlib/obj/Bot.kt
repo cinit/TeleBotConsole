@@ -53,6 +53,16 @@ class Bot internal constructor(
         fun isTrivialPrivateChat(chatId: Long): Boolean {
             return chatId > 0
         }
+
+        @JvmStatic
+        fun isTrivialUserSender(senderId: Long): Boolean {
+            return senderId > 0
+        }
+
+        @JvmStatic
+        fun isAnonymousSender(senderId: Long): Boolean {
+            return senderId < CHAT_ID_NEGATIVE_NOTATION
+        }
     }
 
     override var userId: Long = 0L
