@@ -48,6 +48,11 @@ class Bot internal constructor(
             }
             return -groupId + CHAT_ID_NEGATIVE_NOTATION
         }
+
+        @JvmStatic
+        fun isTrivialPrivateChat(chatId: Long): Boolean {
+            return chatId > 0
+        }
     }
 
     override var userId: Long = 0L
