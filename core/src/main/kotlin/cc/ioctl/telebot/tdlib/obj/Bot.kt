@@ -284,10 +284,7 @@ class Bot internal constructor(
         val event = JsonParser.parseString(event).asJsonObject
         val chatId = event.get("chat_id").asLong
         val title = event.get("title").asString
-        Log.d(TAG, "handleUpdateChatTitle: chatId: $chatId, title: $title")
-        if (chatId > CHAT_ID_NEGATIVE_NOTATION) {
-            Log.d(TAG, "handleUpdateChatTitle: chatId > CHAT_ID_NEGATIVE_NOTATION, chatId: $chatId")
-        } else {
+        if (chatId < CHAT_ID_NEGATIVE_NOTATION) {
             val gid = chatIdToGroupId(chatId)
             val cachedGroup = server.getCachedGroupWithGroupId(gid)
             if (cachedGroup != null) {
