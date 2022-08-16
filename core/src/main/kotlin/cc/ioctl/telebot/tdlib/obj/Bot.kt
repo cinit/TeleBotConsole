@@ -363,6 +363,11 @@ class Bot internal constructor(
         val deleteMessages = JsonParser.parseString(event).asJsonObject
         val chatId = deleteMessages.get("chat_id").asLong
         val messageIds = deleteMessages.get("message_ids").asJsonArray.map { it.asLong }
+        val isFromCache = deleteMessages.get("from_cache")?.asBoolean ?: false
+        if (isFromCache) {
+            // ignore non permanent message deletions
+            return true
+        }
         // TDLib docs say that some messages being sent can be irrecoverably deleted,
         // in which case updateDeleteMessages will be received instead of updateMessageSendFailed.
         synchronized(mTransientMessageLock) {
