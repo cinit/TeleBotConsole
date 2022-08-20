@@ -313,7 +313,9 @@ public abstract class TlRpcJsonObject implements Cloneable {
         }
         String type = obj.get("@type").getAsString();
         if ("error".equals(type)) {
-            throw new RemoteApiException(obj.toString());
+            int code = obj.get("code").getAsInt();
+            String message = obj.get("message").getAsString();
+            throw new RemoteApiException(code, message);
         }
     }
 }

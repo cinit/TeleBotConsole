@@ -1,20 +1,34 @@
 package cc.ioctl.telebot.tdlib.tlrpc;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 public class RemoteApiException extends Exception {
 
-    public RemoteApiException(String message, Throwable cause) {
+    private final int code;
+    private final String message;
+
+    public RemoteApiException(int code, @NotNull String message, @Nullable Throwable cause) {
         super(message, cause);
+        this.code = code;
+        this.message = message;
     }
 
-    public RemoteApiException(String message) {
-        super(message);
+    public RemoteApiException(int code, @NotNull String message) {
+        this(code, message, null);
     }
 
-    public RemoteApiException(Throwable cause) {
-        super(cause);
+    @Override
+    public String getMessage() {
+        return message;
     }
 
-    public RemoteApiException() {
+    public int getCode() {
+        return code;
     }
 
+    @Override
+    public String toString() {
+        return getClass().getName() + ": " + code + ": " + message;
+    }
 }

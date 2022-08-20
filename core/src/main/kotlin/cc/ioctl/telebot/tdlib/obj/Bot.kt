@@ -105,6 +105,7 @@ class Bot internal constructor(
         val time: Long,
         val lock: Mutex,
         @Volatile var newMessage: Message? = null,
+        @Volatile var errorCode: Int = 0,
         @Volatile var errorMsg: String? = null
     )
 
@@ -376,6 +377,7 @@ class Bot internal constructor(
                 val holder = mTransientMessages[key]
                 if (holder != null && holder.lock.isLocked) {
                     holder.newMessage = holder.oldMessage
+                    holder.errorCode = 500
                     holder.errorMsg = "message has been deleted"
                     holder.lock.unlock()
                 }
@@ -444,11 +446,13 @@ class Bot internal constructor(
         val chatId = msg.chatId
         val oldMsgId = update.get("old_message_id").asLong
         val errorMsg = update.get("error_message").asString
+        val errorCode = update.get("error_code").asInt
         synchronized(mTransientMessageLock) {
             val key = "${chatId}_${oldMsgId}"
             val holder = mTransientMessages[key]
             if (holder != null) {
                 holder.newMessage = msg
+                holder.errorCode = errorCode
                 holder.errorMsg = errorMsg
                 val lock = holder.lock
                 if (lock.isLocked) {
@@ -965,12 +969,9 @@ class Bot internal constructor(
                 throw AssertionError("mTransientMessages remove check failed")
             }
         }
-        val newMessage = holder.newMessage
-        if (newMessage == null) {
-            throw IOException("Timeout waiting for updateMessageSendSuccess")
-        }
+        val newMessage = holder.newMessage ?: throw IOException("Timeout waiting for updateMessageSendSuccess")
         if (holder.errorMsg != null) {
-            throw RemoteApiException(holder.errorMsg)
+            throw RemoteApiException(holder.errorCode, holder.errorMsg!!)
         }
         return newMessage
     }
