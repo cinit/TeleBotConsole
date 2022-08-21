@@ -35,17 +35,13 @@ class Bot internal constructor(
 
         @JvmStatic
         fun chatIdToGroupId(chatId: Long): Long {
-            if (chatId > CHAT_ID_NEGATIVE_NOTATION) {
-                throw IllegalArgumentException("chatId $chatId is not a group chat id")
-            }
+            require(chatId < CHAT_ID_NEGATIVE_NOTATION) { "chatId $chatId is not a group chat id" }
             return -chatId + CHAT_ID_NEGATIVE_NOTATION
         }
 
         @JvmStatic
         fun groupIdToChatId(groupId: Long): Long {
-            if (groupId <= 0) {
-                throw IllegalArgumentException("groupId $groupId is not a group chat id")
-            }
+            require(groupId > 0) { "groupId $groupId is not a group chat id" }
             return -groupId + CHAT_ID_NEGATIVE_NOTATION
         }
 
@@ -569,7 +565,7 @@ class Bot internal constructor(
                 obj.get("chat_id").asLong
             }
             else -> {
-                throw IllegalArgumentException("unexpected sender type: $type")
+                error("unexpected sender type: $type")
             }
         }
     }
@@ -614,6 +610,7 @@ class Bot internal constructor(
                 if (chatId != -gid + CHAT_ID_NEGATIVE_NOTATION) {
                     throw AssertionError("chatId=$chatId, gid=$gid")
                 }
+                check(typeImpl["is_channel"].asBoolean) { "updateChannelFromChat: supergroup is a channel" }
                 val group = server.getOrNewGroup(gid, this)
                 group.isSuperGroup = true
                 group.name = name
@@ -635,7 +632,7 @@ class Bot internal constructor(
                 return group
             }
             else -> {
-                throw IllegalArgumentException("updateGroupFromChat: unexpected chat type: $chatType, event: $chatObj")
+                error("updateGroupFromChat: unexpected chat type: $chatType, event: $chatObj")
             }
         }
     }
@@ -781,12 +778,8 @@ class Bot internal constructor(
     }
 
     suspend fun loginWithBotTokenSuspended(token: String): Long {
-        if (token.isEmpty()) {
-            throw IllegalArgumentException("Token is empty")
-        }
-        if (mAuthState == AuthState.AUTHORIZED) {
-            throw IllegalStateException("Bot is already authorized, uid: $userId")
-        }
+        require(token.isNotEmpty()) { "Token is empty" }
+        check(mAuthState != AuthState.AUTHORIZED) { "Bot is already authorized, uid: $userId" }
         Log.d(TAG, "loginWithBotToken, mAuthState: $mAuthState, clientId: $clientIndex")
         mAuthBotToken = token;
         if (mAuthState == AuthState.WAIT_TOKEN || mAuthState == AuthState.INVALID_CREDENTIALS) {
@@ -1076,9 +1069,7 @@ class Bot internal constructor(
     suspend fun deleteMessages(
         chatId: Long, msgIds: Array<Long>
     ): JsonObject {
-        if (msgIds.isEmpty()) {
-            throw IllegalArgumentException("msgIds is empty")
-        }
+        require(msgIds.isNotEmpty()) { "msgIds is empty" }
         JsonObject().apply {
             addProperty("@type", "deleteMessages")
             addProperty("chat_id", chatId)
@@ -1197,9 +1188,7 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun resolveUser(userId: Long, invalidate: Boolean = false): User {
-        if (userId <= 0) {
-            throw IllegalArgumentException("userId $userId is not valid")
-        }
+        require(userId > 0) { "userId $userId is not valid" }
         if (!invalidate) {
             val cached = server.getCachedUserWithUserId(userId)
             if (cached != null && cached.isKnown) {
@@ -1222,9 +1211,7 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun resolveGroup(groupId: Long, invalidate: Boolean = false): Group {
-        if (groupId <= 0) {
-            throw IllegalArgumentException("groupId $groupId is not valid")
-        }
+        require(groupId > 0) { "groupId $groupId is not valid" }
         if (!invalidate) {
             val cached = server.getCachedGroupWithGroupId(groupId)
             if (cached != null && cached.isKnown) {
@@ -1249,15 +1236,13 @@ class Bot internal constructor(
             "chatTypeSupergroup" -> {
                 updateGroupFromChat(chatObj)
             }
-            else -> throw IllegalArgumentException("Unknown chat type: $chatType")
+            else -> error("Unknown chat type: $chatType")
         }
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun resolveChat(chatId: Long, invalidate: Boolean = false): JsonObject {
-        if (chatId == 0L) {
-            throw IllegalArgumentException("chatId $chatId is not valid")
-        }
+        require(chatId != 0L) { "chatId $chatId is not valid" }
         val request1 = JsonObject().apply {
             addProperty("@type", "getChat")
             addProperty("chat_id", chatId)
@@ -1272,12 +1257,8 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun getGroupMember(groupId: Long, userId: Long): JsonObject {
-        if (groupId <= 0) {
-            throw IllegalArgumentException("groupId $groupId is not valid")
-        }
-        if (userId <= 0) {
-            throw IllegalArgumentException("userId $userId is not valid")
-        }
+        require(groupId > 0) { "groupId $groupId is not valid" }
+        require(userId > 0) { "userId $userId is not valid" }
         val request1 = JsonObject().apply {
             addProperty("@type", "getChatMember")
             addProperty("chat_id", groupIdToChatId(groupId))
@@ -1296,12 +1277,8 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun processChatJoinRequest(chatId: Long, userId: Long, approve: Boolean) {
-        if (chatId > CHAT_ID_NEGATIVE_NOTATION) {
-            throw IllegalArgumentException("chatId $chatId is not a valid group chat id")
-        }
-        if (userId <= 0) {
-            throw IllegalArgumentException("userId $userId is not a valid user id")
-        }
+        require(chatId < CHAT_ID_NEGATIVE_NOTATION) { "chatId $chatId is not a valid group chat id" }
+        require(userId > 0) { "userId $userId is not a valid user id" }
         val request = JsonObject().apply {
             addProperty("@type", "processChatJoinRequest")
             addProperty("chat_id", chatId)

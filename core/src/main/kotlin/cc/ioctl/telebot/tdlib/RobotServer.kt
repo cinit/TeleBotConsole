@@ -43,17 +43,13 @@ class RobotServer private constructor(val baseDir: File) {
     private val mLocalBotUidMaps: HashMap<Long, Int> = HashMap(1)
 
     fun start(apiId: Int, apiHash: String, useTestDC: Boolean) {
-        if (apiId <= 0) {
-            throw IllegalArgumentException("apiId must be greater than 0")
-        }
-        if (!apiHash.matches(Regex("[a-f0-9]{32}"))) {
-            throw IllegalArgumentException("apiHash must be a 40-character lowercase hex string")
-        }
+        require(apiId > 0) { "apiId must be greater than 0" }
+        require(apiHash.matches(Regex("[a-f0-9]{32}"))) { "apiHash must be a 40-character lowercase hex string" }
         IoUtils.mkdirsOrThrow(pluginsDir)
         IoUtils.mkdirsOrThrow(tdlibDir)
         synchronized(mLock) {
             if (::mPollThread.isInitialized) {
-                throw IllegalStateException("RobotServer is already started")
+                error("RobotServer is already started")
             }
             // set TDLib log verbosity level to WARN
             NativeBridge.nativeTDLibExecuteSynchronized(JsonObject().apply {
@@ -141,9 +137,7 @@ class RobotServer private constructor(val baseDir: File) {
     }
 
     fun getCachedUserWithUserId(uid: Long): User? {
-        if (uid <= 0) {
-            throw IllegalArgumentException("userId must be greater than 0")
-        }
+        require(uid > 0L) { "uid must be greater than 0" }
         return cachedObjectPool.findCachedUser(uid)
     }
 
@@ -152,35 +146,27 @@ class RobotServer private constructor(val baseDir: File) {
     }
 
     fun getOrNewUser(userId: Long, bot: Bot? = null): User {
-        if (userId <= 0) {
-            throw IllegalArgumentException("userId must be greater than 0")
-        }
+        require(userId > 0) { "userId must be greater than 0" }
         val user = cachedObjectPool.getOrCreateUser(userId)
         user.affinityUserId = bot?.userId ?: 0
         return user
     }
 
     fun getOrNewGroup(groupId: Long, bot: Bot? = null): Group {
-        if (groupId <= 0) {
-            throw IllegalArgumentException("groupId must be greater than 0")
-        }
+        require(groupId > 0) { "groupId must be greater than 0" }
         val group = cachedObjectPool.getOrCreateGroup(groupId)
         group.affinityUserId = bot?.userId ?: 0
         return group
     }
 
     fun getCachedPrivateChatSessionWithChatId(chatId: Long): PrivateChatSession? {
-        if (chatId <= 0) {
-            throw IllegalArgumentException("private chat id must be greater than 0")
-        }
+        require(chatId > 0) { "chatId must be greater than 0" }
         // try to find in cache first
         return cachedObjectPool.getCachedPrivateChat(chatId)
     }
 
     fun getCachedGroupWithGroupId(groupId: Long): Group? {
-        if (groupId <= 0) {
-            throw IllegalArgumentException("groupId must be greater than 0")
-        }
+        require(groupId > 0) { "groupId must be greater than 0" }
         return cachedObjectPool.findCachedGroup(groupId)
     }
 
@@ -189,16 +175,12 @@ class RobotServer private constructor(val baseDir: File) {
     }
 
     fun createNewBot(designator: String): Bot {
-        if (designator.isEmpty()) {
-            throw IllegalArgumentException("designator must not be empty")
-        }
-        if (!designator.matches(Regex("[a-zA-Z0-9_]+"))) {
-            throw IllegalArgumentException("designator must be a-zA-Z0-9_")
-        }
+        require(designator.isNotEmpty()) { "designator must not be empty" }
+        require(designator.matches(Regex("[a-zA-Z0-9_]+"))) { "designator must be a-zA-Z0-9_" }
         synchronized(mLock) {
             val index = NativeBridge.nativeTDLibCreateClient()
             if (index < 0) {
-                throw IllegalStateException("Failed to create new bot: returned index $index")
+                error("Failed to create new bot: returned index $index")
             }
             val bot = Bot(this, index, designator)
             mLocalBots[index] = bot
@@ -218,9 +200,7 @@ class RobotServer private constructor(val baseDir: File) {
         val extra: String
         val requestToSend: String
         val req = JsonParser.parseString(request).asJsonObject
-        if (!req.has("@type")) {
-            throw IllegalArgumentException("request must have @type")
-        }
+        require(req.has("@type")) { "request must have @type" }
         if (!req.has("@extra")) {
             extra = "req_" + nextSequence()
             req.addProperty("@extra", extra)
@@ -237,9 +217,7 @@ class RobotServer private constructor(val baseDir: File) {
     fun executeRequestBlocking(request: String, bot: Bot, timeout: Int): String? {
         val extra: String
         val req = JsonParser.parseString(request).asJsonObject
-        if (!req.has("@type")) {
-            throw IllegalArgumentException("request must have @type")
-        }
+        require(req.has("@type")) { "request must have @type" }
         val requestToSend: String
         if (!req.has("@extra")) {
             extra = "req_" + nextSequence()
@@ -285,9 +263,7 @@ class RobotServer private constructor(val baseDir: File) {
     suspend fun executeRequestSuspended(request: String, bot: Bot, timeout: Int): String? {
         val extra: String
         val req = JsonParser.parseString(request).asJsonObject
-        if (!req.has("@type")) {
-            throw IllegalArgumentException("request must have @type")
-        }
+        require(req.has("@type")) { "request must have @type" }
         val requestToSend: String
         if (!req.has("@extra")) {
             extra = "req_" + nextSequence()
@@ -341,19 +317,17 @@ class RobotServer private constructor(val baseDir: File) {
         @JvmStatic
         @Synchronized
         fun createInstance(workingDir: File): RobotServer {
-            if (!workingDir.isAbsolute) {
-                throw IllegalArgumentException("workingDir must be an absolute path")
-            }
+            check(workingDir.isAbsolute) { "workingDir must be an absolute path" }
             return if (sInstance == null) {
                 val server = RobotServer(workingDir)
                 sInstance = server
                 server
             } else {
-                throw IllegalStateException("RobotServer is already created")
+                error("RobotServer is already created")
             }
         }
 
         val instance: RobotServer
-            get() = sInstance ?: throw IllegalStateException("RobotServer is not initialized")
+            get() = sInstance ?: error("RobotServer is not initialized")
     }
 }
