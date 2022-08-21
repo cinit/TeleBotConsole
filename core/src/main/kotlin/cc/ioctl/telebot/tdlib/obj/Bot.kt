@@ -16,8 +16,12 @@ import cc.ioctl.telebot.util.Log
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.jetbrains.skija.Image
 import java.io.File
 import java.io.IOException
@@ -111,7 +115,7 @@ class Bot internal constructor(
     private val mTransientMessages = HashMap<String, TransientMessageHolder>(1)
 
     private var mDefaultLogOnlyErrorHandler = object : TransactionDispatcher.TransactionCallbackV1 {
-        override fun onEvent(event: String, bot: Bot?, type: String): Boolean {
+        override fun onEvent(event: JsonObject, bot: Bot?, type: String): Boolean {
             if (bot != this@Bot) {
                 Log.e(TAG, "onEvent: bot!=this@Bot, expected: $bot, actual: ${this@Bot}")
                 return false
@@ -154,7 +158,7 @@ class Bot internal constructor(
         CLOSED
     }
 
-    suspend fun onReceiveTDLibEventBlocking(event: String, type: String): Boolean {
+    suspend fun onReceiveTDLibEventBlocking(event: JsonObject, type: String): Boolean {
         return runBlocking {
             withContext(Dispatchers.Default) {
                 return@withContext handleTDLibEvent(event, type)
@@ -162,11 +166,11 @@ class Bot internal constructor(
         }
     }
 
-    suspend fun onReceiveTDLibEvent(event: String, type: String): Boolean {
+    suspend fun onReceiveTDLibEvent(event: JsonObject, type: String): Boolean {
         return handleTDLibEvent(event, type)
     }
 
-    private suspend fun handleTDLibEvent(event: String, type: String): Boolean {
+    private suspend fun handleTDLibEvent(event: JsonObject, type: String): Boolean {
         return when (type) {
             "updateAuthorizationState" -> {
                 handleUpdateAuthorizationState(event)
@@ -253,10 +257,10 @@ class Bot internal constructor(
         }
     }
 
-    private fun handleUpdateTypedGroup(event: String, type: String): Boolean {
+    private fun handleUpdateTypedGroup(event: JsonObject, type: String): Boolean {
         when (type) {
             "updateSupergroup" -> {
-                val supergroup = JsonParser.parseString(event).asJsonObject.getAsJsonObject("supergroup")
+                val supergroup = event.getAsJsonObject("supergroup")
                 val uid = supergroup.get("id").asLong
                 val username = supergroup.get("username").asString
                 val group = server.getOrNewGroup(uid, this)
@@ -265,7 +269,7 @@ class Bot internal constructor(
                 return true
             }
             "updateBasicGroup" -> {
-                val basicGroup = JsonParser.parseString(event).asJsonObject.getAsJsonObject("basic_group")
+                val basicGroup = event.getAsJsonObject("basic_group")
                 val uid = basicGroup.get("id").asLong
                 Log.d(TAG, "handleUpdateTypedGroup: basicGroup: $basicGroup")
                 return true
@@ -277,8 +281,8 @@ class Bot internal constructor(
         }
     }
 
-    private fun handleUpdateChatTitle(event: String): Boolean {
-        val event = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateChatTitle(event: JsonObject): Boolean {
+        val event = event
         val chatId = event.get("chat_id").asLong
         val title = event.get("title").asString
         if (chatId < CHAT_ID_NEGATIVE_NOTATION) {
@@ -291,15 +295,15 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateChatPhoto(event: String): Boolean {
-        val event = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateChatPhoto(event: JsonObject): Boolean {
+        val event = event
         val chatId = event.get("chat_id").asLong
         Log.d(TAG, "handleUpdateChatPhoto: chatId: $chatId")
         return true
     }
 
-    private fun handleUpdateChatPermissions(event: String): Boolean {
-        val obj = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateChatPermissions(event: JsonObject): Boolean {
+        val obj = event
         val chatId = obj.get("chat_id").asLong
         val permissions = obj.get("permissions").asJsonObject
         Log.d(TAG, "handleUpdateChatPermissions: chatId: $chatId, permissions: $permissions")
@@ -309,14 +313,14 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateConnectionState(event: String): Boolean {
-        val state = JsonParser.parseString(event).asJsonObject.get("state").asJsonObject.get("@type").asString
+    private fun handleUpdateConnectionState(event: JsonObject): Boolean {
+        val state = event.get("state").asJsonObject.get("@type").asString
         Log.d(TAG, "handleUpdateConnectionState: $state")
         return true
     }
 
-    private fun handleUpdateUser(event: String): Boolean {
-        val userObj = JsonParser.parseString(event).asJsonObject.getAsJsonObject("user")
+    private fun handleUpdateUser(event: JsonObject): Boolean {
+        val userObj = event.getAsJsonObject("user")
         updateUserInfo(userObj)
         return true
     }
@@ -356,8 +360,8 @@ class Bot internal constructor(
         return user
     }
 
-    private fun handleUpdateDeleteMessages(event: String): Boolean {
-        val deleteMessages = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateDeleteMessages(event: JsonObject): Boolean {
+        val deleteMessages = event
         val chatId = deleteMessages.get("chat_id").asLong
         val messageIds = deleteMessages.get("message_ids").asJsonArray.map { it.asLong }
         val isFromCache = deleteMessages.get("from_cache")?.asBoolean ?: false
@@ -385,8 +389,8 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateNewCallbackQuery(event: String): Boolean {
-        val callbackQuery = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateNewCallbackQuery(event: JsonObject): Boolean {
+        val callbackQuery = event
         val chatId = callbackQuery.get("chat_id").asLong
         val senderId = callbackQuery.get("sender_user_id").asLong
         val queryId = callbackQuery.get("id").asString
@@ -404,8 +408,8 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateMessageSendSucceeded(event: String): Boolean {
-        val update = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateMessageSendSucceeded(event: JsonObject): Boolean {
+        val update = event
         val msg = Message.fromJsonObject(update.getAsJsonObject("message"))
         val msgId = msg.id
         val senderId = msg.senderId
@@ -434,8 +438,8 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateMessageSendFailed(event: String): Boolean {
-        val update = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateMessageSendFailed(event: JsonObject): Boolean {
+        val update = event
         val msg = Message.fromJsonObject(update.getAsJsonObject("message"))
         val msgId = msg.id
         val senderId = msg.senderId
@@ -464,8 +468,8 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateNewMessage(event: String): Boolean {
-        val msg = Message.fromJsonObject(JsonParser.parseString(event).asJsonObject.getAsJsonObject("message"))
+    private fun handleUpdateNewMessage(event: JsonObject): Boolean {
+        val msg = Message.fromJsonObject(event.getAsJsonObject("message"))
         val msgId = msg.id
         val chatId = msg.chatId
         val isOutgoing = msg.isOutgoing
@@ -480,8 +484,8 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateMessageContent(event: String): Boolean {
-        val obj = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateMessageContent(event: JsonObject): Boolean {
+        val obj = event
         val chatId = obj.get("chat_id").asLong
         val msgId = obj.get("message_id").asLong
         val content = obj.getAsJsonObject("new_content")
@@ -492,13 +496,13 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateFile(event: String): Boolean {
+    private fun handleUpdateFile(event: JsonObject): Boolean {
         // Log.v(TAG, "handleUpdateFile: $event")
         return true
     }
 
-    private fun handleUpdateChatHasProtectedContent(event: String): Boolean {
-        val obj = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateChatHasProtectedContent(event: JsonObject): Boolean {
+        val obj = event
         TlRpcJsonObject.checkTypeNonNull(obj, "updateChatHasProtectedContent")
         val chatId = obj.get("chat_id").asLong
         val hasProtectedContent = obj.get("has_protected_content").asBoolean
@@ -514,8 +518,8 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateMessageEdited(event: String): Boolean {
-        val obj = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateMessageEdited(event: JsonObject): Boolean {
+        val obj = event
         val chatId = obj.get("chat_id").asLong
         val msgId = obj.get("message_id").asLong
         val editDate = obj.get("edit_date").asInt
@@ -525,8 +529,8 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateMessageIsPinned(event: String): Boolean {
-        val obj = JsonParser.parseString(event).asJsonObject
+    private fun handleUpdateMessageIsPinned(event: JsonObject): Boolean {
+        val obj = event
         val chatId = obj.get("chat_id").asLong
         val msgId = obj.get("message_id").asLong
         val isPinned = obj.get("is_pinned").asBoolean
@@ -536,22 +540,27 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateChatMember(event: String): Boolean {
-        val obj = JsonParser.parseString(event).asJsonObject
-        val chatId = obj.get("chat_id").asLong
-        val userId = obj.get("actor_user_id").asLong
+    private fun handleUpdateChatMember(event: JsonObject): Boolean {
+        val chatId = event.get("chat_id").asLong
+        val userId = event.get("actor_user_id").asLong
+        check(userId > 0) { "handleUpdateChatMember: userId=$userId is not positive" }
+        if (chatId < CHAT_ID_NEGATIVE_NOTATION) {
+            val gid = chatIdToGroupId(chatId)
+            val newStatus = event["new_chat_member"].asJsonObject["status"].asJsonObject
+            server.getCachedGroupWithGroupId(gid)?.updateChatMemberPermissionStatus(userId, newStatus)
+            server.getCachedChannelWithChannelId(gid)?.updateChatMemberPermissionStatus(userId, newStatus)
+        }
         for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
-            listener.onMemberStatusChanged(this, chatId, userId, obj)
+            listener.onMemberStatusChanged(this, chatId, userId, event)
         }
         return true
     }
 
-    private fun handleUpdateNewChatJoinRequest(event: String): Boolean {
-        val obj = JsonParser.parseString(event).asJsonObject
-        val chatId = obj.get("chat_id").asLong
-        val userId = obj.get("request").asJsonObject.get("user_id").asLong
+    private fun handleUpdateNewChatJoinRequest(event: JsonObject): Boolean {
+        val chatId = event.get("chat_id").asLong
+        val userId = event.get("request").asJsonObject.get("user_id").asLong
         for (listener in synchronized(mListenerLock) { mGroupMemberJoinRequestListenerV1.toList() }) {
-            listener.onMemberJoinRequest(this, chatId, userId, obj)
+            listener.onMemberJoinRequest(this, chatId, userId, event)
         }
         return true
     }
@@ -570,8 +579,8 @@ class Bot internal constructor(
         }
     }
 
-    private fun handleUpdateNewChat(event: String): Boolean {
-        val chat = JsonParser.parseString(event).asJsonObject.getAsJsonObject("chat")
+    private fun handleUpdateNewChat(event: JsonObject): Boolean {
+        val chat = event.getAsJsonObject("chat")
         updateChatInfo(chat)
         return true
     }
@@ -642,8 +651,8 @@ class Bot internal constructor(
         return true
     }
 
-    private suspend fun handleUpdateAuthorizationState(event: String): Boolean {
-        val state: JsonObject = JsonParser.parseString(event).asJsonObject.getAsJsonObject("authorization_state")
+    private suspend fun handleUpdateAuthorizationState(event: JsonObject): Boolean {
+        val state: JsonObject = event.getAsJsonObject("authorization_state")
         val authState = state.get("@type").asString
         Log.d(TAG, "handleUpdateAuthorizationState: $authState")
         when (authState) {
@@ -661,7 +670,7 @@ class Bot internal constructor(
                     // if we have access token, try to use it
                     if (!mAuthBotToken.isNullOrBlank()) {
                         // send bot token
-                        Log.d(TAG, "try auth with bot token");
+                        Log.d(TAG, "try auth with bot token")
                         val request = JsonObject()
                         request.addProperty("@type", "checkAuthenticationBotToken")
                         request.addProperty("token", mAuthBotToken)
@@ -669,7 +678,7 @@ class Bot internal constructor(
                             if (type == "error") {
                                 Log.e(TAG, "checkAuthenticationBotToken: error: $result")
                                 mAuthState = AuthState.INVALID_CREDENTIALS;
-                                notifyAuthorizationResult(false, result)
+                                notifyAuthorizationResult(false, result["message"].asString)
                             } else if (type == "ok") {
                                 Log.d(TAG, "checkAuthenticationBotToken: ok: $result")
                                 mAuthState = AuthState.AUTHORIZED
@@ -706,7 +715,7 @@ class Bot internal constructor(
                             if (type == "error") {
                                 Log.e(TAG, "setAuthenticationPhoneNumber: error: $result")
                                 mAuthState = AuthState.INVALID_CREDENTIALS;
-                                notifyAuthorizationResult(false, result)
+                                notifyAuthorizationResult(false, result["message"].asString)
                             } else if (type == "ok") {
                                 Log.d(TAG, "setAuthenticationPhoneNumber: ok: $result")
                                 mAuthState = AuthState.WAIT_CODE
@@ -750,9 +759,9 @@ class Bot internal constructor(
         executeRequestWaitExpectSuccess(request.toString(), 1000)
     }
 
-    private fun handleUpdateOption(event: String): Boolean {
-        val name = JsonParser.parseString(event).asJsonObject.get("name").asString
-        val value = JsonParser.parseString(event).asJsonObject.get("value").asJsonObject
+    private fun handleUpdateOption(event: JsonObject): Boolean {
+        val name = event.get("name").asString
+        val value = event.get("value").asJsonObject
         // Log.v(TAG, "handleUpdateOption: $event")
         when (name) {
             "my_id" -> {
@@ -799,7 +808,7 @@ class Bot internal constructor(
                 }.toString()) { result, _, type ->
                     return@executeRawRequestAsync when (type) {
                         "optionValueInteger" -> {
-                            val uid = JsonParser.parseString(result).asJsonObject.get("value").asLong
+                            val uid = result.get("value").asLong
                             if (uid > 0) {
                                 userId = uid
                                 Log.i(TAG, "loginWithBotToken: user id: $userId")
@@ -832,13 +841,13 @@ class Bot internal constructor(
         return server.executeRawRequestAsync(request, this, callback)
     }
 
-    private fun executeRawRequestAsync(request: JsonObject, callback: (String, Bot?, String) -> Boolean): String {
+    private fun executeRawRequestAsync(request: JsonObject, callback: (JsonObject, Bot?, String) -> Boolean): String {
         return executeRawRequestAsync(request.toString(), callback)
     }
 
-    private fun executeRawRequestAsync(request: String, callback: (String, Bot?, String) -> Boolean): String {
+    private fun executeRawRequestAsync(request: String, callback: (JsonObject, Bot?, String) -> Boolean): String {
         return server.executeRawRequestAsync(request, this, object : TransactionDispatcher.TransactionCallbackV1 {
-            override fun onEvent(event: String, bot: Bot?, type: String): Boolean {
+            override fun onEvent(event: JsonObject, bot: Bot?, type: String): Boolean {
                 return callback(event, bot, type)
             }
         })

@@ -4,6 +4,8 @@ import cc.ioctl.telebot.tdlib.RobotServer
 import cc.ioctl.telebot.tdlib.obj.Bot
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject
 import cc.ioctl.telebot.util.Log
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import java.util.concurrent.ConcurrentHashMap
 
 object TransactionDispatcher {
@@ -13,12 +15,12 @@ object TransactionDispatcher {
     private val mEventConsumerMap = ConcurrentHashMap<String, TransactionCallbackV1>(10)
 
     interface TransactionCallbackV1 {
-        fun onEvent(event: String, bot: Bot?, type: String): Boolean
+        fun onEvent(event: JsonObject, bot: Bot?, type: String): Boolean
     }
 
     @JvmStatic
-    suspend fun dispatchTDLibEvent(server: RobotServer, event: String) {
-        // Log.d(TAG, "handleTDLibEvent: $event")
+    suspend fun dispatchTDLibEvent(server: RobotServer, eventJsonString: String) {
+        val event = JsonParser.parseString(eventJsonString).asJsonObject
         val type = TlRpcJsonObject.getType(event)
         if (type == null) {
             Log.e(TAG, "handleTDLibEvent: type is null, event: $event")
