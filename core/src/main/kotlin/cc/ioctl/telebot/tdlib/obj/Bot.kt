@@ -63,6 +63,23 @@ class Bot internal constructor(
         fun isAnonymousSender(senderId: Long): Boolean {
             return senderId < CHAT_ID_NEGATIVE_NOTATION
         }
+
+        @JvmStatic
+        fun isChannelChatId(chatId: Long): Boolean {
+            return chatId < CHAT_ID_NEGATIVE_NOTATION
+        }
+
+        @JvmStatic
+        fun chatIdToChannelId(chatId: Long): Long {
+            require(chatId < CHAT_ID_NEGATIVE_NOTATION) { "chatId $chatId is not a channel chat id" }
+            return -chatId + CHAT_ID_NEGATIVE_NOTATION
+        }
+
+        @JvmStatic
+        fun channelIdToChatId(channelId: Long): Long {
+            require(channelId > 0) { "channelId $channelId is not a channel chat id" }
+            return -channelId + CHAT_ID_NEGATIVE_NOTATION
+        }
     }
 
     override var userId: Long = 0L
@@ -593,7 +610,12 @@ class Bot internal constructor(
         when (val chatType = typeImpl.get("@type").asString) {
             "chatTypeSupergroup",
             "chatTypeBasicGroup" -> {
-                updateGroupFromChat(chat)
+                val isChannel = chatType == "chatTypeSupergroup" && typeImpl.get("is_channel").asBoolean
+                if (isChannel) {
+                    updateChannelFromChat(chat)
+                } else {
+                    updateGroupFromChat(chat)
+                }
             }
             "chatTypePrivate" -> {
                 val uid = typeImpl["user_id"].asLong
@@ -619,7 +641,7 @@ class Bot internal constructor(
                 if (chatId != -gid + CHAT_ID_NEGATIVE_NOTATION) {
                     throw AssertionError("chatId=$chatId, gid=$gid")
                 }
-                check(typeImpl["is_channel"].asBoolean) { "updateChannelFromChat: supergroup is a channel" }
+                check(!typeImpl["is_channel"].asBoolean) { "updateChannelFromChat: supergroup is a channel" }
                 val group = server.getOrNewGroup(gid, this)
                 group.isSuperGroup = true
                 group.name = name
@@ -646,7 +668,28 @@ class Bot internal constructor(
         }
     }
 
-    private fun handleUpdateUserStatus(event: String): Boolean {
+    private fun updateChannelFromChat(chatObj: JsonObject): Channel {
+        TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        val chatId = chatObj.get("id").asLong
+        val name = chatObj.get("title").asString
+        val typeImpl = chatObj["type"].asJsonObject
+        // channel should be a supergroup
+        TlRpcJsonObject.checkTypeNonNull(typeImpl, "chatTypeSupergroup")
+        check(typeImpl["is_channel"].asBoolean == true) { "updateChannelFromChat: supergroup is not a channel" }
+        val gid = typeImpl["supergroup_id"].asLong
+        if (chatId != -gid + CHAT_ID_NEGATIVE_NOTATION) {
+            throw AssertionError("chatId=$chatId, gid=$gid")
+        }
+        val channel = server.getOrNewChannel(gid, this)
+        channel.name = name
+        val photo = chatObj.getAsJsonObject("photo")
+        if (photo != null) {
+            channel.photo = RemoteFile.fromJsonObject(photo["small"].asJsonObject)
+        }
+        return channel
+    }
+
+    private fun handleUpdateUserStatus(event: JsonObject): Boolean {
         Log.i(TAG, "handleUpdateUserStatus: $event")
         return true
     }
@@ -1247,6 +1290,27 @@ class Bot internal constructor(
             }
             else -> error("Unknown chat type: $chatType")
         }
+    }
+
+    @Throws(RemoteApiException::class, IOException::class)
+    suspend fun resolveChannel(channelId: Long, invalidate: Boolean = false): Channel {
+        require(channelId > 0) { "channelId $channelId is not valid" }
+        if (!invalidate) {
+            val cached = server.getCachedChannelWithChannelId(channelId)
+            if (cached != null && cached.isKnown) {
+                return cached
+            }
+        }
+        val request = JsonObject().apply {
+            addProperty("@type", "getChat")
+            addProperty("chat_id", -channelId + CHAT_ID_NEGATIVE_NOTATION)
+        }
+        val result = executeRequest(request.toString(), server.defaultTimeout)
+            ?: throw IOException("Timeout executing getChat request")
+        val obj = JsonParser.parseString(result).asJsonObject
+        TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+        TlRpcJsonObject.checkTypeNonNull(obj, "chat")
+        return updateChannelFromChat(obj)
     }
 
     @Throws(RemoteApiException::class, IOException::class)

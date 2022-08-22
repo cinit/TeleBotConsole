@@ -1,6 +1,7 @@
 package cc.ioctl.telebot.tdlib.intern
 
 import cc.ioctl.telebot.tdlib.RobotServer
+import cc.ioctl.telebot.tdlib.obj.Channel
 import cc.ioctl.telebot.tdlib.obj.Group
 import cc.ioctl.telebot.tdlib.obj.PrivateChatSession
 import cc.ioctl.telebot.tdlib.obj.User
@@ -19,7 +20,7 @@ class NonLocalObjectCachePool internal constructor(
     }
 
     private val mLruGroupCache = LinkedHashMap<Long, Group>(16)
-
+    private val mLruChannelCache = LinkedHashMap<Long, Channel>(16)
     private val mLruPrivateChatCache = LinkedHashMap<Long, PrivateChatSession>(16)
 
     fun getOrCreateUser(userId: Long): User {
@@ -48,6 +49,14 @@ class NonLocalObjectCachePool internal constructor(
         }
     }
 
+    fun getOrCreateChannel(channelId: Long): Channel {
+        synchronized(mLock) {
+            return mLruChannelCache[channelId] ?: Channel(server, channelId).also {
+                mLruChannelCache[channelId] = it
+            }
+        }
+    }
+
     fun getOrCreatePrivateChat(chatId: Long, userId: Long): PrivateChatSession {
         synchronized(mLock) {
             return mLruPrivateChatCache[chatId] ?: PrivateChatSession(server, chatId, userId).also {
@@ -68,6 +77,15 @@ class NonLocalObjectCachePool internal constructor(
         }
         synchronized(mLock) {
             return mLruGroupCache[uid]
+        }
+    }
+
+    fun findCachedChannel(uid: Long): Channel? {
+        if (uid == 0L) {
+            return null
+        }
+        synchronized(mLock) {
+            return mLruChannelCache[uid]
         }
     }
 

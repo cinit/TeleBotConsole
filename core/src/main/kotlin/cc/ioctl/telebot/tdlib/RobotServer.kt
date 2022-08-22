@@ -5,6 +5,7 @@ import cc.ioctl.telebot.intern.NativeBridge
 import cc.ioctl.telebot.intern.TDLibPollThread
 import cc.ioctl.telebot.tdlib.intern.NonLocalObjectCachePool
 import cc.ioctl.telebot.tdlib.obj.Bot
+import cc.ioctl.telebot.tdlib.obj.Channel
 import cc.ioctl.telebot.tdlib.obj.Group
 import cc.ioctl.telebot.tdlib.obj.PrivateChatSession
 import cc.ioctl.telebot.tdlib.obj.User
@@ -161,6 +162,13 @@ class RobotServer private constructor(val baseDir: File) {
         return group
     }
 
+    fun getOrNewChannel(channelId: Long, bot: Bot? = null): Channel {
+        require(channelId > 0) { "channelId must be greater than 0" }
+        val channel = cachedObjectPool.getOrCreateChannel(channelId)
+        channel.affinityUserId = bot?.userId ?: 0
+        return channel
+    }
+
     fun getCachedPrivateChatSessionWithChatId(chatId: Long): PrivateChatSession? {
         require(chatId > 0) { "chatId must be greater than 0" }
         // try to find in cache first
@@ -170,6 +178,11 @@ class RobotServer private constructor(val baseDir: File) {
     fun getCachedGroupWithGroupId(groupId: Long): Group? {
         require(groupId > 0) { "groupId must be greater than 0" }
         return cachedObjectPool.findCachedGroup(groupId)
+    }
+
+    fun getCachedChannelWithChannelId(channelId: Long): Channel? {
+        require(channelId > 0) { "channelId must be greater than 0" }
+        return cachedObjectPool.findCachedChannel(channelId)
     }
 
     fun nextSequence(): Long {
