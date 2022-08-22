@@ -1222,7 +1222,7 @@ class Bot internal constructor(
     }
 
     @Throws(RemoteApiException::class, IOException::class)
-    suspend fun resolveMessage(chatId: Long, msgId: Long, invalidate: Boolean = false): Message {
+    suspend fun getMessage(chatId: Long, msgId: Long, invalidate: Boolean = false): Message {
         val request = JsonObject().apply {
             addProperty("@type", "getMessage")
             addProperty("chat_id", chatId)
@@ -1239,7 +1239,7 @@ class Bot internal constructor(
     }
 
     @Throws(RemoteApiException::class, IOException::class)
-    suspend fun resolveUser(userId: Long, invalidate: Boolean = false): User {
+    suspend fun getUser(userId: Long, invalidate: Boolean = false): User {
         require(userId > 0) { "userId $userId is not valid" }
         if (!invalidate) {
             val cached = server.getCachedUserWithUserId(userId)
@@ -1262,7 +1262,7 @@ class Bot internal constructor(
     }
 
     @Throws(RemoteApiException::class, IOException::class)
-    suspend fun resolveGroup(groupId: Long, invalidate: Boolean = false): Group {
+    suspend fun getGroup(groupId: Long, invalidate: Boolean = false): Group {
         require(groupId > 0) { "groupId $groupId is not valid" }
         if (!invalidate) {
             val cached = server.getCachedGroupWithGroupId(groupId)
@@ -1293,7 +1293,7 @@ class Bot internal constructor(
     }
 
     @Throws(RemoteApiException::class, IOException::class)
-    suspend fun resolveChannel(channelId: Long, invalidate: Boolean = false): Channel {
+    suspend fun getChannel(channelId: Long, invalidate: Boolean = false): Channel {
         require(channelId > 0) { "channelId $channelId is not valid" }
         if (!invalidate) {
             val cached = server.getCachedChannelWithChannelId(channelId)
@@ -1314,7 +1314,7 @@ class Bot internal constructor(
     }
 
     @Throws(RemoteApiException::class, IOException::class)
-    suspend fun resolveChat(chatId: Long, invalidate: Boolean = false): JsonObject {
+    suspend fun getChat(chatId: Long, invalidate: Boolean = false): JsonObject {
         require(chatId != 0L) { "chatId $chatId is not valid" }
         val request1 = JsonObject().apply {
             addProperty("@type", "getChat")

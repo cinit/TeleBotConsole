@@ -96,7 +96,7 @@ object ServerInit {
             Log.i(TAG, "Login success")
             // update bot info
             loginBots.forEach { bot ->
-                bot.resolveUser(bot.userId)
+                bot.getUser(bot.userId)
                 if (bot.username.isNullOrEmpty()) {
                     Log.e(TAG, "Bot $bot has no username")
                 }
