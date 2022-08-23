@@ -229,7 +229,7 @@ class RobotServer private constructor(val baseDir: File) {
         return extra
     }
 
-    fun executeRequestBlocking(request: String, bot: Bot, timeout: Int): String? {
+    fun executeRequestBlocking(request: String, bot: Bot, timeout: Int): JsonObject? {
         val extra: String
         val req = JsonParser.parseString(request).asJsonObject
         require(req.has("@type")) { "request must have @type" }
@@ -242,10 +242,10 @@ class RobotServer private constructor(val baseDir: File) {
             extra = req.get("@extra").asString
             requestToSend = request
         }
-        val result: Array<String?> = arrayOfNulls(1)
+        val result: Array<JsonObject?> = arrayOfNulls(1)
         val owner = Object()
         TransactionDispatcher.waitForSingleEvent(extra, object : TransactionDispatcher.TransactionCallbackV1 {
-            override fun onEvent(event: String, bot: Bot?, type: String): Boolean {
+            override fun onEvent(event: JsonObject, bot: Bot?, type: String): Boolean {
                 return if (TlRpcJsonObject.getExtra(event) == extra) {
                     synchronized(owner) {
                         result[0] = event
@@ -275,7 +275,7 @@ class RobotServer private constructor(val baseDir: File) {
         return result[0]
     }
 
-    suspend fun executeRequestSuspended(request: String, bot: Bot, timeout: Int): String? {
+    suspend fun executeRequestSuspended(request: String, bot: Bot, timeout: Int): JsonObject? {
         val extra: String
         val req = JsonParser.parseString(request).asJsonObject
         require(req.has("@type")) { "request must have @type" }
@@ -289,9 +289,9 @@ class RobotServer private constructor(val baseDir: File) {
             requestToSend = request
         }
         val mutex = Mutex(true)
-        val result: Array<String?> = arrayOfNulls(1)
+        val result: Array<JsonObject?> = arrayOfNulls(1)
         TransactionDispatcher.waitForSingleEvent(extra, object : TransactionDispatcher.TransactionCallbackV1 {
-            override fun onEvent(event: String, bot: Bot?, type: String): Boolean {
+            override fun onEvent(event: JsonObject, bot: Bot?, type: String): Boolean {
                 return if (TlRpcJsonObject.getExtra(event) == extra) {
                     result[0] = event
                     mutex.unlock()

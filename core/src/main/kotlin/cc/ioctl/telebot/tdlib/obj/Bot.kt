@@ -950,7 +950,7 @@ class Bot internal constructor(
             Log.e(TAG, "executeRequestWait: timeout, request: $request")
             return false
         }
-        val type = JsonParser.parseString(result).asJsonObject.get("@type").asString
+        val type = result.asJsonObject.get("@type").asString
         if (type != "ok") {
             Log.e(TAG, "executeRequestWait: error: $result")
             return false
@@ -975,9 +975,8 @@ class Bot internal constructor(
             add("options", options)
         }
         val until = System.currentTimeMillis() + server.defaultTimeout
-        val result = executeRequest(request.toString(), server.defaultTimeout)
+        val obj = executeRequest(request.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing sendMessage")
-        val obj = JsonParser.parseString(result).asJsonObject
         TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
         val oldMsg: Message
         try {
@@ -1106,11 +1105,10 @@ class Bot internal constructor(
             add("caption", caption.toJsonObject())
             add("reply_markup", replyMarkup?.toJsonObject())
         }.let {
-            val result = executeRequest(it.toString(), server.defaultTimeout)
-            if (result == null) {
+            val obj = executeRequest(it.toString(), server.defaultTimeout)
+            if (obj == null) {
                 throw IOException("Timeout")
             } else {
-                val obj = JsonParser.parseString(result).asJsonObject
                 TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
                 return obj
             }
@@ -1130,11 +1128,10 @@ class Bot internal constructor(
             })
             addProperty("revoke", true)
         }.let {
-            val result = executeRequest(it.toString(), server.defaultTimeout)
-            if (result == null) {
+            val obj = executeRequest(it.toString(), server.defaultTimeout)
+            if (obj == null) {
                 throw IOException("Timeout")
             } else {
-                val obj = JsonParser.parseString(result).asJsonObject
                 TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
                 return obj
             }
@@ -1169,11 +1166,10 @@ class Bot internal constructor(
             add("input_message_content", inputMessageContent)
             add("reply_markup", replyMarkup?.toJsonObject())
         }.let {
-            val result = executeRequest(it.toString(), server.defaultTimeout)
-            if (result == null) {
+            val obj = executeRequest(it.toString(), server.defaultTimeout)
+            if (obj == null) {
                 throw IOException("Timeout")
             } else {
-                val obj = JsonParser.parseString(result).asJsonObject
                 TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
                 return obj
             }
@@ -1212,11 +1208,10 @@ class Bot internal constructor(
             addProperty("url", url)
             addProperty("cache_time", cacheTime)
         }
-        val result = executeRequest(request.toString(), server.defaultTimeout)
-        if (result == null) {
+        val obj = executeRequest(request.toString(), server.defaultTimeout)
+        if (obj == null) {
             throw IOException("Timeout")
         } else {
-            val obj = JsonParser.parseString(result).asJsonObject
             TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
         }
     }
@@ -1228,11 +1223,10 @@ class Bot internal constructor(
             addProperty("chat_id", chatId)
             addProperty("message_id", msgId)
         }
-        val result = executeRequest(request.toString(), server.defaultTimeout)
-        if (result == null) {
+        val obj = executeRequest(request.toString(), server.defaultTimeout)
+        if (obj == null) {
             throw IOException("Timeout executing getMessage request")
         } else {
-            val obj = JsonParser.parseString(result).asJsonObject
             TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
             return Message.fromJsonObject(obj)
         }
@@ -1251,11 +1245,10 @@ class Bot internal constructor(
             addProperty("@type", "getUser")
             addProperty("user_id", userId)
         }
-        val result = executeRequest(request.toString(), server.defaultTimeout)
-        if (result == null) {
+        val obj = executeRequest(request.toString(), server.defaultTimeout)
+        if (obj == null) {
             throw IOException("Timeout executing getUser request")
         } else {
-            val obj = JsonParser.parseString(result).asJsonObject
             TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
             return updateUserInfo(obj)
         }
@@ -1276,9 +1269,8 @@ class Bot internal constructor(
             val chatId = -groupId + CHAT_ID_NEGATIVE_NOTATION
             addProperty("chat_id", chatId)
         }
-        val result1 = executeRequest(request1.toString(), server.defaultTimeout)
+        val chatObj = executeRequest(request1.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing getChat request")
-        val chatObj = JsonParser.parseString(result1).asJsonObject
         TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
         TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
         return when (val chatType = chatObj.get("type").asJsonObject.get("@type").asString) {
@@ -1305,9 +1297,8 @@ class Bot internal constructor(
             addProperty("@type", "getChat")
             addProperty("chat_id", -channelId + CHAT_ID_NEGATIVE_NOTATION)
         }
-        val result = executeRequest(request.toString(), server.defaultTimeout)
+        val obj = executeRequest(request.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing getChat request")
-        val obj = JsonParser.parseString(result).asJsonObject
         TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
         TlRpcJsonObject.checkTypeNonNull(obj, "chat")
         return updateChannelFromChat(obj)
@@ -1320,9 +1311,8 @@ class Bot internal constructor(
             addProperty("@type", "getChat")
             addProperty("chat_id", chatId)
         }
-        val result1 = executeRequest(request1.toString(), server.defaultTimeout)
+        val chatObj = executeRequest(request1.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing getChat request")
-        val chatObj = JsonParser.parseString(result1).asJsonObject
         TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
         TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
         return chatObj
@@ -1340,9 +1330,8 @@ class Bot internal constructor(
                 addProperty("user_id", userId)
             })
         }
-        val result1 = executeRequest(request1.toString(), server.defaultTimeout)
+        val chatObj = executeRequest(request1.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing getChatMember request")
-        val chatObj = JsonParser.parseString(result1).asJsonObject
         TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
         TlRpcJsonObject.checkTypeNonNull(chatObj, "chatMember")
         return chatObj
@@ -1358,16 +1347,15 @@ class Bot internal constructor(
             addProperty("user_id", userId)
             addProperty("approve", approve)
         }
-        val result = executeRequest(request.toString(), server.defaultTimeout)
-        if (result == null) {
+        val obj = executeRequest(request.toString(), server.defaultTimeout)
+        if (obj == null) {
             throw IOException("Timeout executing processChatJoinRequest request")
         } else {
-            val obj = JsonParser.parseString(result).asJsonObject
             TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
         }
     }
 
-    private suspend fun executeRequest(request: String, timeout: Int): String? {
+    private suspend fun executeRequest(request: String, timeout: Int): JsonObject? {
         return server.executeRequestSuspended(request, this, timeout)
     }
 
