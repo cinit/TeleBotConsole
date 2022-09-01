@@ -20,7 +20,7 @@ object EventHandler {
         /**
          * @param bot the bot that received the event
          * @param chatId the chat id of the group, negative number starting with '-100'
-         * @param userId the anchor user id of the event
+         * @param userId the user id of the event, greater than 0 for user, starting with '-100' for anonymous channel
          * @param event the updateChatMember object
          */
         fun onMemberStatusChanged(bot: Bot, chatId: Long, userId: Long, event: JsonObject): Boolean

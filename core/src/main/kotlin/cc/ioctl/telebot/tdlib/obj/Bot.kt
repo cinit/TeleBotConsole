@@ -15,7 +15,6 @@ import cc.ioctl.telebot.util.IoUtils
 import cc.ioctl.telebot.util.Log
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
@@ -559,7 +558,18 @@ class Bot internal constructor(
 
     private fun handleUpdateChatMember(event: JsonObject): Boolean {
         val chatId = event.get("chat_id").asLong
-        val userId = event.get("actor_user_id").asLong
+        val memberObj = event["new_chat_member"].asJsonObject
+        val userId = when (val memberType = memberObj["member_id"].asJsonObject["@type"].asString) {
+            "messageSenderUser" -> {
+                memberObj["member_id"].asJsonObject["user_id"].asLong
+            }
+            "messageSenderChat" -> {
+                memberObj["member_id"].asJsonObject["chat_id"].asLong
+            }
+            else -> {
+                error("unknown member type $memberType")
+            }
+        }
         check(userId > 0) { "handleUpdateChatMember: userId=$userId is not positive" }
         if (chatId < CHAT_ID_NEGATIVE_NOTATION) {
             val gid = chatIdToGroupId(chatId)
