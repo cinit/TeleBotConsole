@@ -20,4 +20,6 @@ public @interface TlRpcField {
     String value();
 
     boolean optional() default false;
+
+    boolean ifEmptyStringNull() default false;
 }

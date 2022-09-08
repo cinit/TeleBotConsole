@@ -2,7 +2,7 @@ package cc.ioctl.telebot
 
 import cc.ioctl.telebot.tdlib.RobotServer
 import cc.ioctl.telebot.tdlib.obj.Bot
-import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject
+import cc.ioctl.telebot.tdlib.tlrpc.BaseTlRpcJsonObject
 import cc.ioctl.telebot.util.Log
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -21,13 +21,13 @@ object TransactionDispatcher {
     @JvmStatic
     suspend fun dispatchTDLibEvent(server: RobotServer, eventJsonString: String) {
         val event = JsonParser.parseString(eventJsonString).asJsonObject
-        val type = TlRpcJsonObject.getType(event)
+        val type = BaseTlRpcJsonObject.getType(event)
         if (type == null) {
             Log.e(TAG, "handleTDLibEvent: type is null, event: $event")
             return
         }
-        val clientIndex = TlRpcJsonObject.getClientId(event)
-        val extra = TlRpcJsonObject.getExtra(event)
+        val clientIndex = BaseTlRpcJsonObject.getClientId(event)
+        val extra = BaseTlRpcJsonObject.getExtra(event)
         val bot: Bot? = server.getBotWithTDLibClientIndex(clientIndex)
         if (extra != null) {
             val consumed = mEventConsumerMap.remove(extra)?.onEvent(event, bot, type) ?: false

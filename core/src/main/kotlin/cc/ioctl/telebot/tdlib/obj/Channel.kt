@@ -10,8 +10,10 @@ class Channel internal constructor(
 ) : ChatSession, IKnowability, IAffinity {
 
     init {
-        check(channelId > 0) { "invalid channel id: $channelId" }
+        require(channelId > 0) { "invalid channel id: $channelId" }
     }
+
+    override val sessionInfo = SessionInfo(channelId, 1)
 
     data class ChannelAdminPermissionSet(
         val canChangeInfo: Boolean,
@@ -63,9 +65,6 @@ class Channel internal constructor(
         internal set
 
     var username: String? = null
-        internal set
-
-    override var chatId: Long = -(1000000000000L + channelId)
         internal set
 
     var photo: RemoteFile? = null

@@ -7,11 +7,12 @@ import cc.ioctl.telebot.tdlib.RobotServer
  */
 class PrivateChatSession internal constructor(
     private val server: RobotServer,
-    override val chatId: Long,
     val userId: Long,
 ) : ChatSession {
 
     val user: User get() = server.getOrNewUser(userId)
+
+    override val sessionInfo = SessionInfo(userId, 0)
 
     override val name: String get() = user.name
 

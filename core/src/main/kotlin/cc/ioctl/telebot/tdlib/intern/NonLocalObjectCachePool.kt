@@ -59,7 +59,7 @@ class NonLocalObjectCachePool internal constructor(
 
     fun getOrCreatePrivateChat(chatId: Long, userId: Long): PrivateChatSession {
         synchronized(mLock) {
-            return mLruPrivateChatCache[chatId] ?: PrivateChatSession(server, chatId, userId).also {
+            return mLruPrivateChatCache[chatId] ?: PrivateChatSession(server, userId).also {
                 mLruPrivateChatCache[chatId] = it
             }
         }

@@ -11,7 +11,9 @@ import cc.ioctl.telebot.tdlib.RobotServer
 class User internal constructor(
     val server: RobotServer,
     override val userId: Long
-) : Account(), Sender, IKnowability, IAffinity {
+) : Account(), ChatSession, Sender, IKnowability, IAffinity {
+
+    override val sessionInfo = SessionInfo(userId, 0)
 
     override var isKnown: Boolean = false
         internal set
@@ -50,6 +52,8 @@ class User internal constructor(
         internal set
 
     override val isUser: Boolean = true
+
+    override val isContentProtected = false
 
     override fun hashCode(): Int {
         return userId.toInt()

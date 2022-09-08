@@ -1,10 +1,10 @@
 package cc.ioctl.telebot.tdlib.obj
 
-interface ChatSession {
+interface ChatSession : ISessionDescriptor {
 
     val name: String
 
-    val chatId: Long
+    override val sessionInfo: SessionInfo
 
     val isContentProtected: Boolean
 

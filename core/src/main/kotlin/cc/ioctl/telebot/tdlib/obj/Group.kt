@@ -2,7 +2,7 @@ package cc.ioctl.telebot.tdlib.obj
 
 import cc.ioctl.telebot.tdlib.RobotServer
 import cc.ioctl.telebot.tdlib.tlrpc.RemoteApiException
-import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject
+import cc.ioctl.telebot.tdlib.tlrpc.BaseTlRpcJsonObject
 import com.google.gson.JsonObject
 import java.io.IOException
 
@@ -13,6 +13,8 @@ class Group internal constructor(
     init {
         check(groupId > 0) { "invalid groupId: $groupId" }
     }
+
+    override val sessionInfo = SessionInfo(groupId, 1)
 
     data class GroupMemberPermissionSet(
         val canSendMessages: Boolean,
@@ -26,7 +28,7 @@ class Group internal constructor(
     ) {
         companion object {
             fun fromJsonObject(obj: JsonObject): GroupMemberPermissionSet {
-                TlRpcJsonObject.checkTypeNonNull(obj, "chatPermissions")
+                BaseTlRpcJsonObject.checkTypeNonNull(obj, "chatPermissions")
                 return GroupMemberPermissionSet(
                     obj.get("can_send_messages").asBoolean,
                     obj.get("can_send_media_messages").asBoolean,
@@ -103,9 +105,6 @@ class Group internal constructor(
         internal set
 
     var isBroadcastGroup: Boolean = false
-        internal set
-
-    override var chatId: Long = -(1000000000000L + groupId)
         internal set
 
     var photo: RemoteFile? = null

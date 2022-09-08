@@ -1,15 +1,15 @@
 package cc.ioctl.telebot.tdlib.tlrpc.api.msg;
 
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcField;
-import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject;
+import cc.ioctl.telebot.tdlib.tlrpc.BaseTlRpcJsonObject;
 import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
 
-public class FormattedText extends TlRpcJsonObject {
+public class FormattedText extends BaseTlRpcJsonObject {
 
     private static final TextEntity[] EMPTY_TEXT_ENTITY_ARRAY = new TextEntity[0];
 
-    public static class TextEntity extends TlRpcJsonObject {
+    public static class TextEntity extends BaseTlRpcJsonObject {
         @TlRpcField("@type")
         public static final String TYPE = "textEntity";
         @TlRpcField("offset")

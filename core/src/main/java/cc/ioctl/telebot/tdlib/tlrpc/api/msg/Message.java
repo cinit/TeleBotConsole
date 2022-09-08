@@ -1,11 +1,12 @@
 package cc.ioctl.telebot.tdlib.tlrpc.api.msg;
 
+import cc.ioctl.telebot.tdlib.obj.SessionInfo;
+import cc.ioctl.telebot.tdlib.tlrpc.BaseTlRpcJsonObject;
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcField;
-import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject;
 import com.google.gson.JsonObject;
 import org.jetbrains.annotations.NotNull;
 
-public class Message extends TlRpcJsonObject {
+public class Message extends BaseTlRpcJsonObject {
 
     @TlRpcField("@type")
     public static final String TYPE = "message";
@@ -20,8 +21,7 @@ public class Message extends TlRpcJsonObject {
 
     public long senderUserId;
 
-    @TlRpcField("chat_id")
-    public long chatId;
+    public SessionInfo sessionInfo;
 
     @TlRpcField(value = "sending_state", optional = true)
     public JsonObject sendingState;
@@ -126,13 +126,15 @@ public class Message extends TlRpcJsonObject {
     }
 
     public static Message fromJsonObject(@NotNull JsonObject obj) throws ReflectiveOperationException {
-        Message message = TlRpcJsonObject.fromJsonObject(Message.class, obj);
+        Message message = BaseTlRpcJsonObject.fromJsonObject(Message.class, obj);
         // update several field
         if ((message.id & (1 << 20 - 1)) == 0) {
             message.serverMsgId = message.id >> 20;
         } else {
             message.serverMsgId = 0;
         }
+        long chatId = obj.get("chat_id").getAsLong();
+        message.sessionInfo = SessionInfo.forTDLibChatId(chatId);
         // update senderUserId
         String senderType = message.senderId.get("@type").getAsString();
         switch (senderType) {
@@ -140,7 +142,7 @@ public class Message extends TlRpcJsonObject {
                 message.senderUserId = message.senderId.get("user_id").getAsLong();
                 break;
             case "messageSenderChat":
-                message.senderUserId = message.senderId.get("chat_id").getAsLong();
+                message.senderUserId = -SessionInfo.chatIdToChannelId(message.senderId.get("chat_id").getAsLong());
                 break;
             default:
                 throw new IllegalArgumentException("Unknown sender type: " + senderType);
@@ -148,4 +150,9 @@ public class Message extends TlRpcJsonObject {
         return message;
     }
 
+    @Override
+    @NotNull
+    public JsonObject toJsonObject() {
+        throw new UnsupportedOperationException("not implemented");
+    }
 }

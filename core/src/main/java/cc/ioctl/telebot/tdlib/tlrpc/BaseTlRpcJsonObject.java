@@ -1,6 +1,9 @@
 package cc.ioctl.telebot.tdlib.tlrpc;
 
-import com.google.gson.*;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -8,7 +11,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Objects;
 
-public abstract class TlRpcJsonObject implements Cloneable {
+public abstract class BaseTlRpcJsonObject implements ITlRpcJsonObject {
 
     @NotNull
     public JsonObject toJsonObject() {
@@ -34,8 +37,8 @@ public abstract class TlRpcJsonObject implements Cloneable {
                     addJsonObjectPrimitive(result, fieldName, type, value);
                 } else if (type == String.class) {
                     result.addProperty(fieldName, (String) value);
-                } else if (TlRpcJsonObject.class.isAssignableFrom(type)) {
-                    result.add(fieldName, ((TlRpcJsonObject) value).toJsonObject());
+                } else if (ITlRpcJsonObject.class.isAssignableFrom(type)) {
+                    result.add(fieldName, ((ITlRpcJsonObject) value).toJsonObject());
                 } else if (JsonElement.class.isAssignableFrom(type)) {
                     result.add(fieldName, (JsonElement) value);
                 } else if (type.isArray()) {
@@ -131,10 +134,10 @@ public abstract class TlRpcJsonObject implements Cloneable {
                 result.add((JsonElement) o);
             }
             return result;
-        } else if (TlRpcJsonObject.class.isAssignableFrom(componentType)) {
+        } else if (BaseTlRpcJsonObject.class.isAssignableFrom(componentType)) {
             JsonArray result = new JsonArray();
             for (Object o : (Object[]) value) {
-                result.add(((TlRpcJsonObject) o).toJsonObject());
+                result.add(((BaseTlRpcJsonObject) o).toJsonObject());
             }
             return result;
         } else {
@@ -142,17 +145,8 @@ public abstract class TlRpcJsonObject implements Cloneable {
         }
     }
 
-    @NotNull
-    public String toJsonString(@Nullable String extra) {
-        JsonObject result = toJsonObject();
-        if (extra != null) {
-            result.addProperty("@extra", extra);
-        }
-        return result.toString();
-    }
-
     public static class TlRpcObjDecodeResult {
-        TlRpcJsonObject object;
+        BaseTlRpcJsonObject object;
         int clientId;
         @Nullable
         String extra;
@@ -160,7 +154,7 @@ public abstract class TlRpcJsonObject implements Cloneable {
         String type;
     }
 
-    public static <T extends TlRpcJsonObject> T fromJsonObject(@NotNull Class<T> clazz, @NotNull JsonObject jsonObject) throws ReflectiveOperationException {
+    public static <T extends BaseTlRpcJsonObject> T fromJsonObject(@NotNull Class<T> clazz, @NotNull JsonObject jsonObject) throws ReflectiveOperationException {
         T result = clazz.getConstructor().newInstance();
         for (Field f : clazz.getDeclaredFields()) {
             if (!Modifier.isPublic(f.getModifiers()) || Modifier.isStatic(f.getModifiers())) {
@@ -195,11 +189,16 @@ public abstract class TlRpcJsonObject implements Cloneable {
                                 throw new AssertionError("Unknown primitive type: " + type);
                             }
                         } else if (type == String.class) {
-                            f.set(result, value.getAsString());
+                            boolean ifEmptyStringNull = annotation.ifEmptyStringNull();
+                            String s = value.getAsString();
+                            if (ifEmptyStringNull && s.isEmpty()) {
+                                s = null;
+                            }
+                            f.set(result, s);
                         } else if (type == JsonObject.class) {
                             f.set(result, value);
-                        } else if (TlRpcJsonObject.class.isAssignableFrom(type)) {
-                            f.set(result, fromJsonObject((Class<? extends TlRpcJsonObject>) type, (JsonObject) value));
+                        } else if (BaseTlRpcJsonObject.class.isAssignableFrom(type)) {
+                            f.set(result, fromJsonObject((Class<? extends BaseTlRpcJsonObject>) type, (JsonObject) value));
                         } else {
                             throw new AssertionError("Unknown type: " + type);
                         }
@@ -217,8 +216,8 @@ public abstract class TlRpcJsonObject implements Cloneable {
         return result;
     }
 
-    public static TlRpcObjDecodeResult fromJsonObjectEx(@NotNull Class<? extends TlRpcJsonObject> clazz, @NotNull JsonObject json) throws ReflectiveOperationException {
-        TlRpcJsonObject obj = fromJsonObject(clazz, json);
+    public static TlRpcObjDecodeResult fromJsonObjectEx(@NotNull Class<? extends BaseTlRpcJsonObject> clazz, @NotNull JsonObject json) throws ReflectiveOperationException {
+        BaseTlRpcJsonObject obj = fromJsonObject(clazz, json);
         TlRpcObjDecodeResult result = new TlRpcObjDecodeResult();
         result.object = obj;
         result.clientId = getClientId(json);

@@ -9,7 +9,7 @@ import cc.ioctl.telebot.tdlib.obj.Channel
 import cc.ioctl.telebot.tdlib.obj.Group
 import cc.ioctl.telebot.tdlib.obj.PrivateChatSession
 import cc.ioctl.telebot.tdlib.obj.User
-import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject
+import cc.ioctl.telebot.tdlib.tlrpc.BaseTlRpcJsonObject
 import cc.ioctl.telebot.tdlib.tlrpc.api.auth.SetTdlibParameters
 import cc.ioctl.telebot.util.IoUtils
 import cc.ioctl.telebot.util.Log
@@ -59,7 +59,7 @@ class RobotServer private constructor(val baseDir: File) {
                 addProperty("@type", "setLogVerbosityLevel")
                 addProperty("new_verbosity_level", 2)
             }.toString()).also { result ->
-                if (TlRpcJsonObject.getType(result) == "ok") {
+                if (BaseTlRpcJsonObject.getType(result) == "ok") {
                     Log.i("RobotServer", "TDLib log verbosity level set to WARNING")
                 } else {
                     Log.e("RobotServer", "Failed to set TDLib log verbosity level to WARNING, $result")
@@ -246,7 +246,7 @@ class RobotServer private constructor(val baseDir: File) {
         val owner = Object()
         TransactionDispatcher.waitForSingleEvent(extra, object : TransactionDispatcher.TransactionCallbackV1 {
             override fun onEvent(event: JsonObject, bot: Bot?, type: String): Boolean {
-                return if (TlRpcJsonObject.getExtra(event) == extra) {
+                return if (BaseTlRpcJsonObject.getExtra(event) == extra) {
                     synchronized(owner) {
                         result[0] = event
                         owner.notifyAll()
@@ -292,7 +292,7 @@ class RobotServer private constructor(val baseDir: File) {
         val result: Array<JsonObject?> = arrayOfNulls(1)
         TransactionDispatcher.waitForSingleEvent(extra, object : TransactionDispatcher.TransactionCallbackV1 {
             override fun onEvent(event: JsonObject, bot: Bot?, type: String): Boolean {
-                return if (TlRpcJsonObject.getExtra(event) == extra) {
+                return if (BaseTlRpcJsonObject.getExtra(event) == extra) {
                     result[0] = event
                     mutex.unlock()
                     true

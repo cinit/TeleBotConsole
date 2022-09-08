@@ -1,10 +1,10 @@
 package cc.ioctl.telebot.tdlib.tlrpc.api.msg;
 
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcField;
-import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject;
+import cc.ioctl.telebot.tdlib.tlrpc.BaseTlRpcJsonObject;
 import org.jetbrains.annotations.NotNull;
 
-public abstract class ReplyMarkup extends TlRpcJsonObject {
+public abstract class ReplyMarkup extends BaseTlRpcJsonObject {
 
     private ReplyMarkup() {
     }
@@ -28,8 +28,8 @@ public abstract class ReplyMarkup extends TlRpcJsonObject {
 
     public static class InlineKeyboard extends ReplyMarkup {
 
-        public static class Button extends TlRpcJsonObject {
-            public abstract static class Type extends TlRpcJsonObject {
+        public static class Button extends BaseTlRpcJsonObject {
+            public abstract static class Type extends BaseTlRpcJsonObject {
                 public static class Callback extends Type {
                     @TlRpcField("@type")
                     public static final String TYPE = "inlineKeyboardButtonTypeCallback";

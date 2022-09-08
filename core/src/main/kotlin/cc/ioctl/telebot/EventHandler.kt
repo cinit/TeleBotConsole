@@ -1,56 +1,58 @@
 package cc.ioctl.telebot
 
 import cc.ioctl.telebot.tdlib.obj.Bot
+import cc.ioctl.telebot.tdlib.obj.SessionInfo
+import cc.ioctl.telebot.tdlib.tlrpc.api.channel.ChannelMemberStatusEvent
+import cc.ioctl.telebot.tdlib.tlrpc.api.channel.ChatJoinRequest
+import cc.ioctl.telebot.tdlib.tlrpc.api.channel.ChatPermissions
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.Message
+import cc.ioctl.telebot.tdlib.tlrpc.api.query.CallbackQuery
 import com.google.gson.JsonObject
 
 object EventHandler {
 
     interface MessageListenerV1 {
-        fun onReceiveMessage(bot: Bot, chatId: Long, senderId: Long, message: Message): Boolean
-        fun onDeleteMessages(bot: Bot, chatId: Long, msgIds: List<Long>): Boolean
-        fun onUpdateMessageContent(bot: Bot, chatId: Long, msgId: Long, content: JsonObject): Boolean
-        fun onMessageEdited(bot: Bot, chatId: Long, msgId: Long, editDate: Int): Boolean
-        fun onMessagePinned(bot: Bot, chatId: Long, msgId: Long, isPinned: Boolean): Boolean {
+        fun onReceiveMessage(bot: Bot, si: SessionInfo, senderId: Long, message: Message): Boolean
+        fun onDeleteMessages(bot: Bot, si: SessionInfo, msgIds: List<Long>): Boolean
+        fun onUpdateMessageContent(bot: Bot, si: SessionInfo, msgId: Long, content: JsonObject): Boolean
+        fun onMessageEdited(bot: Bot, si: SessionInfo, msgId: Long, editDate: Int): Boolean
+        fun onMessagePinned(bot: Bot, si: SessionInfo, msgId: Long, isPinned: Boolean): Boolean {
             return false
         }
     }
 
-    interface GroupPermissionListenerV1 {
+    interface GroupPermissionListenerV2 {
         /**
          * @param bot the bot that received the event
-         * @param chatId the chat id of the group, negative number starting with '-100'
+         * @param groupId the group id
          * @param userId the user id of the event, greater than 0 for user, starting with '-100' for anonymous channel
-         * @param event the updateChatMember object
+         * @param event the event
          */
-        fun onMemberStatusChanged(bot: Bot, chatId: Long, userId: Long, event: JsonObject): Boolean
+        fun onMemberStatusChanged(bot: Bot, groupId: Long, userId: Long, event: ChannelMemberStatusEvent): Boolean
 
         /**
          * @param bot the bot that received the event
-         * @param chatId the chat id of the group, negative number starting with '-100'
-         * @param perm the chatPermissions object
+         * @param groupId the group id
+         * @param perm the new chat permissions
          */
-        fun onChatPermissionsChanged(bot: Bot, chatId: Long, permissions: JsonObject): Boolean
+        fun onGroupDefaultPermissionsChanged(bot: Bot, groupId: Long, permissions: ChatPermissions): Boolean
+
     }
 
-    interface GroupMemberJoinRequestListenerV1 {
+    interface GroupMemberJoinRequestListenerV2 {
         /**
          * @param bot the bot that received the event
-         * @param chatId the chat id of the group, negative number starting with '-100'
+         * @param groupId the chat id of the group/channel, always positive
          * @param userId the user id requesting to join the group
-         * @param event the updateNewChatJoinRequest object
+         * @param request the join request
          */
-        fun onMemberJoinRequest(bot: Bot, chatId: Long, userId: Long, event: JsonObject): Boolean
+        fun onMemberJoinRequest(bot: Bot, groupId: Long, userId: Long, request: ChatJoinRequest): Boolean
     }
 
-    interface CallbackQueryListenerV1 {
+    interface CallbackQueryListenerV2 {
         fun onCallbackQuery(
             bot: Bot,
-            query: JsonObject,
-            queryId: String,
-            chatId: Long,
-            senderId: Long,
-            msgId: Long
+            query: CallbackQuery
         ): Boolean
     }
 

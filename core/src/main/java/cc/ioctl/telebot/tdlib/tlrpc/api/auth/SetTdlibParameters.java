@@ -1,10 +1,10 @@
 package cc.ioctl.telebot.tdlib.tlrpc.api.auth;
 
 import cc.ioctl.telebot.tdlib.tlrpc.TlRpcField;
-import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject;
+import cc.ioctl.telebot.tdlib.tlrpc.BaseTlRpcJsonObject;
 import org.jetbrains.annotations.NotNull;
 
-public class SetTdlibParameters extends TlRpcJsonObject {
+public class SetTdlibParameters extends BaseTlRpcJsonObject {
 
     @TlRpcField("@type")
     public static final String TYPE = "setTdlibParameters";
@@ -21,7 +21,7 @@ public class SetTdlibParameters extends TlRpcJsonObject {
         this.parameters = parameters;
     }
 
-    public static class Parameter extends TlRpcJsonObject {
+    public static class Parameter extends BaseTlRpcJsonObject {
 
         @TlRpcField("database_directory")
         public String databaseDirectory;

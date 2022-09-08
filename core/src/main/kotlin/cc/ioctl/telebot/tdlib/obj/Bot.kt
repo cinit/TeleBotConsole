@@ -3,13 +3,20 @@ package cc.ioctl.telebot.tdlib.obj
 import cc.ioctl.telebot.EventHandler
 import cc.ioctl.telebot.TransactionDispatcher
 import cc.ioctl.telebot.tdlib.RobotServer
+import cc.ioctl.telebot.tdlib.obj.SessionInfo.Companion.CHAT_ID_NEGATIVE_NOTATION
+import cc.ioctl.telebot.tdlib.obj.SessionInfo.Companion.chatIdToGroupId
+import cc.ioctl.telebot.tdlib.obj.SessionInfo.Companion.groupIdToChatId
+import cc.ioctl.telebot.tdlib.tlrpc.BaseTlRpcJsonObject
 import cc.ioctl.telebot.tdlib.tlrpc.RemoteApiException
-import cc.ioctl.telebot.tdlib.tlrpc.TlRpcJsonObject
 import cc.ioctl.telebot.tdlib.tlrpc.api.InputFile
 import cc.ioctl.telebot.tdlib.tlrpc.api.auth.SetTdlibParameters
+import cc.ioctl.telebot.tdlib.tlrpc.api.channel.ChannelMemberStatusEvent
+import cc.ioctl.telebot.tdlib.tlrpc.api.channel.ChatJoinRequest
+import cc.ioctl.telebot.tdlib.tlrpc.api.channel.ChatPermissions
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.FormattedText
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.Message
 import cc.ioctl.telebot.tdlib.tlrpc.api.msg.ReplyMarkup
+import cc.ioctl.telebot.tdlib.tlrpc.api.query.CallbackQuery
 import cc.ioctl.telebot.util.Condition
 import cc.ioctl.telebot.util.IoUtils
 import cc.ioctl.telebot.util.Log
@@ -27,58 +34,11 @@ import java.io.IOException
 import kotlin.time.Duration.Companion.milliseconds
 
 class Bot internal constructor(
-    val server: RobotServer,
-    val clientIndex: Int,
-    designator: String
+    val server: RobotServer, val clientIndex: Int, designator: String
 ) : Account() {
 
     companion object {
         private const val TAG = "Bot"
-        const val CHAT_ID_NEGATIVE_NOTATION = -1000000000000L
-
-        @JvmStatic
-        fun chatIdToGroupId(chatId: Long): Long {
-            require(chatId < CHAT_ID_NEGATIVE_NOTATION) { "chatId $chatId is not a group chat id" }
-            return -chatId + CHAT_ID_NEGATIVE_NOTATION
-        }
-
-        @JvmStatic
-        fun groupIdToChatId(groupId: Long): Long {
-            require(groupId > 0) { "groupId $groupId is not a group chat id" }
-            return -groupId + CHAT_ID_NEGATIVE_NOTATION
-        }
-
-        @JvmStatic
-        fun isTrivialPrivateChat(chatId: Long): Boolean {
-            return chatId > 0
-        }
-
-        @JvmStatic
-        fun isTrivialUserSender(senderId: Long): Boolean {
-            return senderId > 0
-        }
-
-        @JvmStatic
-        fun isAnonymousSender(senderId: Long): Boolean {
-            return senderId < CHAT_ID_NEGATIVE_NOTATION
-        }
-
-        @JvmStatic
-        fun isChannelChatId(chatId: Long): Boolean {
-            return chatId < CHAT_ID_NEGATIVE_NOTATION
-        }
-
-        @JvmStatic
-        fun chatIdToChannelId(chatId: Long): Long {
-            require(chatId < CHAT_ID_NEGATIVE_NOTATION) { "chatId $chatId is not a channel chat id" }
-            return -chatId + CHAT_ID_NEGATIVE_NOTATION
-        }
-
-        @JvmStatic
-        fun channelIdToChatId(channelId: Long): Long {
-            require(channelId > 0) { "channelId $channelId is not a channel chat id" }
-            return -channelId + CHAT_ID_NEGATIVE_NOTATION
-        }
     }
 
     override var userId: Long = 0L
@@ -106,9 +66,9 @@ class Bot internal constructor(
     private val mDataBaseDir = File(server.tdlibDir, designator)
 
     private val mOnRecvMsgListeners = HashSet<EventHandler.MessageListenerV1>(1)
-    private val mOnGroupEventListeners = HashSet<EventHandler.GroupPermissionListenerV1>(1)
-    private val mGroupMemberJoinRequestListenerV1 = HashSet<EventHandler.GroupMemberJoinRequestListenerV1>(1)
-    private val mCallbackQueryListeners = HashSet<EventHandler.CallbackQueryListenerV1>(1)
+    private val mOnGroupEventListeners = HashSet<EventHandler.GroupPermissionListenerV2>(1)
+    private val mGroupMemberJoinRequestListenerV1 = HashSet<EventHandler.GroupMemberJoinRequestListenerV2>(1)
+    private val mCallbackQueryListeners = HashSet<EventHandler.CallbackQueryListenerV2>(1)
 
     init {
         IoUtils.mkdirsOrThrow(mDataBaseDir)
@@ -163,15 +123,7 @@ class Bot internal constructor(
     private val mAuthStateLastErrorMsg: String? = null
 
     private enum class AuthState {
-        UNINITIALIZED,
-        WAIT_TOKEN,
-        WAIT_CODE,
-        WAIT_PASSWORD,
-        WAIT_RESPONSE,
-        AUTHORIZED,
-        INVALID_CREDENTIALS,
-        INVALID_STATE,
-        CLOSED
+        UNINITIALIZED, WAIT_TOKEN, WAIT_CODE, WAIT_PASSWORD, WAIT_RESPONSE, AUTHORIZED, INVALID_CREDENTIALS, INVALID_STATE, CLOSED
     }
 
     suspend fun onReceiveTDLibEventBlocking(event: JsonObject, type: String): Boolean {
@@ -212,8 +164,7 @@ class Bot internal constructor(
             "updateMessageEdited" -> {
                 handleUpdateMessageEdited(event)
             }
-            "updateBasicGroup",
-            "updateSupergroup" -> {
+            "updateBasicGroup", "updateSupergroup" -> {
                 handleUpdateTypedGroup(event, type)
             }
             "updateNewChat" -> {
@@ -255,14 +206,7 @@ class Bot internal constructor(
             "updateChatPhoto" -> {
                 handleUpdateChatPhoto(event)
             }
-            "updateSelectedBackground",
-            "updateFileDownloads",
-            "updateChatThemes",
-            "updateDiceEmojis",
-            "updateAnimationSearchParameters",
-            "updateRecentStickers",
-            "updateReactions",
-            "updateChatPosition" -> {
+            "updateSelectedBackground", "updateFileDownloads", "updateChatThemes", "updateDiceEmojis", "updateAnimationSearchParameters", "updateRecentStickers", "updateReactions", "updateChatPosition" -> {
                 // ignore
                 true
             }
@@ -298,7 +242,6 @@ class Bot internal constructor(
     }
 
     private fun handleUpdateChatTitle(event: JsonObject): Boolean {
-        val event = event
         val chatId = event.get("chat_id").asLong
         val title = event.get("title").asString
         if (chatId < CHAT_ID_NEGATIVE_NOTATION) {
@@ -318,13 +261,15 @@ class Bot internal constructor(
         return true
     }
 
-    private fun handleUpdateChatPermissions(event: JsonObject): Boolean {
-        val obj = event
+    private fun handleUpdateChatPermissions(obj: JsonObject): Boolean {
         val chatId = obj.get("chat_id").asLong
         val permissions = obj.get("permissions").asJsonObject
-        Log.d(TAG, "handleUpdateChatPermissions: chatId: $chatId, permissions: $permissions")
+        check(chatId < CHAT_ID_NEGATIVE_NOTATION) { "handleUpdateChatMember: chatId=$chatId is not a group" }
+        val gid = chatIdToGroupId(chatId)
+        val perm = ChatPermissions.fromJsonObject(ChatPermissions::class.java, permissions)
+        Log.d(TAG, "handleUpdateChatPermissions: gid: $gid, permissions: $permissions")
         for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
-            listener.onChatPermissionsChanged(this, chatId, permissions)
+            listener.onGroupDefaultPermissionsChanged(this, gid, perm)
         }
         return true
     }
@@ -342,7 +287,7 @@ class Bot internal constructor(
     }
 
     private fun updateUserInfo(userObj: JsonObject): User {
-        TlRpcJsonObject.checkTypeNonNull(userObj, "user")
+        BaseTlRpcJsonObject.checkTypeNonNull(userObj, "user")
         val uid = userObj.get("id").asLong
         val firstName = userObj.get("first_name").asString
         val lastName = userObj.get("last_name").asString
@@ -399,8 +344,9 @@ class Bot internal constructor(
                 }
             }
         }
+        val si = SessionInfo.forTDLibChatId(chatId)
         for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
-            listener.onDeleteMessages(this, chatId, messageIds)
+            listener.onDeleteMessages(this, si, messageIds)
         }
         return true
     }
@@ -413,8 +359,9 @@ class Bot internal constructor(
         val msgId = callbackQuery.get("message_id").asLong
         // call listeners
         var handled = false
+        val query = CallbackQuery.fromJsonObject(callbackQuery)
         for (listener in synchronized(mListenerLock) { mCallbackQueryListeners.toList() }) {
-            if (listener.onCallbackQuery(this, callbackQuery, queryId, chatId, senderId, msgId)) {
+            if (listener.onCallbackQuery(this, query)) {
                 handled = true
             }
         }
@@ -429,11 +376,11 @@ class Bot internal constructor(
         val msg = Message.fromJsonObject(update.getAsJsonObject("message"))
         val msgId = msg.id
         val senderId = msg.senderId
-        val chatId = msg.chatId
+        val si = msg.sessionInfo
         val oldMsgId = update.get("old_message_id").asLong
         var hasOwner = false
         synchronized(mTransientMessageLock) {
-            val key = "${chatId}_${oldMsgId}"
+            val key = "${si.toTDLibChatId()}_${oldMsgId}"
             val holder = mTransientMessages[key]
             if (holder != null) {
                 holder.newMessage = msg
@@ -447,8 +394,8 @@ class Bot internal constructor(
             }
         }
         if (!hasOwner) {
-            val logMsg = "handleUpdateMessageSendSucceeded but no owner: " +
-                    "chatId=$chatId, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
+            val logMsg =
+                "handleUpdateMessageSendSucceeded but no owner: " + "$si, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
             Log.d(TAG, logMsg)
         }
         return true
@@ -458,13 +405,13 @@ class Bot internal constructor(
         val update = event
         val msg = Message.fromJsonObject(update.getAsJsonObject("message"))
         val msgId = msg.id
+        val si = msg.sessionInfo
         val senderId = msg.senderId
-        val chatId = msg.chatId
         val oldMsgId = update.get("old_message_id").asLong
         val errorMsg = update.get("error_message").asString
         val errorCode = update.get("error_code").asInt
         synchronized(mTransientMessageLock) {
-            val key = "${chatId}_${oldMsgId}"
+            val key = "${si.toTDLibChatId()}_${oldMsgId}"
             val holder = mTransientMessages[key]
             if (holder != null) {
                 holder.newMessage = msg
@@ -478,8 +425,7 @@ class Bot internal constructor(
                 }
             }
         }
-        val logMsg = "handleUpdateMessageSendFailed: " +
-                "chatId=$chatId, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
+        val logMsg = "handleUpdateMessageSendFailed: " + "$si, msgId=$msgId, oldMsgId=$oldMsgId, senderId=$senderId"
         Log.w(TAG, logMsg)
         return true
     }
@@ -487,7 +433,7 @@ class Bot internal constructor(
     private fun handleUpdateNewMessage(event: JsonObject): Boolean {
         val msg = Message.fromJsonObject(event.getAsJsonObject("message"))
         val msgId = msg.id
-        val chatId = msg.chatId
+        val si = msg.sessionInfo
         val isOutgoing = msg.isOutgoing
         if (isOutgoing) {
             return true
@@ -495,7 +441,7 @@ class Bot internal constructor(
         val senderId = getSenderId(msg.senderId)
         // call listeners
         for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
-            listener.onReceiveMessage(this, chatId, senderId, msg)
+            listener.onReceiveMessage(this, si, senderId, msg)
         }
         return true
     }
@@ -505,9 +451,10 @@ class Bot internal constructor(
         val chatId = obj.get("chat_id").asLong
         val msgId = obj.get("message_id").asLong
         val content = obj.getAsJsonObject("new_content")
+        val si = SessionInfo.forTDLibChatId(chatId)
         // call listeners
         for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
-            listener.onUpdateMessageContent(this, chatId, msgId, content)
+            listener.onUpdateMessageContent(this, si, msgId, content)
         }
         return true
     }
@@ -519,7 +466,7 @@ class Bot internal constructor(
 
     private fun handleUpdateChatHasProtectedContent(event: JsonObject): Boolean {
         val obj = event
-        TlRpcJsonObject.checkTypeNonNull(obj, "updateChatHasProtectedContent")
+        BaseTlRpcJsonObject.checkTypeNonNull(obj, "updateChatHasProtectedContent")
         val chatId = obj.get("chat_id").asLong
         val hasProtectedContent = obj.get("has_protected_content").asBoolean
         if (chatId < CHAT_ID_NEGATIVE_NOTATION) {
@@ -539,8 +486,9 @@ class Bot internal constructor(
         val chatId = obj.get("chat_id").asLong
         val msgId = obj.get("message_id").asLong
         val editDate = obj.get("edit_date").asInt
+        val si = SessionInfo.forTDLibChatId(chatId)
         for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
-            listener.onMessageEdited(this, chatId, msgId, editDate)
+            listener.onMessageEdited(this, si, msgId, editDate)
         }
         return true
     }
@@ -550,15 +498,16 @@ class Bot internal constructor(
         val chatId = obj.get("chat_id").asLong
         val msgId = obj.get("message_id").asLong
         val isPinned = obj.get("is_pinned").asBoolean
+        val si = SessionInfo.forTDLibChatId(chatId)
         for (listener in synchronized(mListenerLock) { mOnRecvMsgListeners.toList() }) {
-            listener.onMessagePinned(this, chatId, msgId, isPinned)
+            listener.onMessagePinned(this, si, msgId, isPinned)
         }
         return true
     }
 
-    private fun handleUpdateChatMember(event: JsonObject): Boolean {
-        val chatId = event.get("chat_id").asLong
-        val memberObj = event["new_chat_member"].asJsonObject
+    private fun handleUpdateChatMember(obj: JsonObject): Boolean {
+        val chatId = obj.get("chat_id").asLong
+        val memberObj = obj["new_chat_member"].asJsonObject
         val userId = when (val memberType = memberObj["member_id"].asJsonObject["@type"].asString) {
             "messageSenderUser" -> {
                 memberObj["member_id"].asJsonObject["user_id"].asLong
@@ -571,14 +520,14 @@ class Bot internal constructor(
             }
         }
         check(userId > 0) { "handleUpdateChatMember: userId=$userId is not positive" }
-        if (chatId < CHAT_ID_NEGATIVE_NOTATION) {
-            val gid = chatIdToGroupId(chatId)
-            val newStatus = event["new_chat_member"].asJsonObject["status"].asJsonObject
-            server.getCachedGroupWithGroupId(gid)?.updateChatMemberPermissionStatus(userId, newStatus)
-            server.getCachedChannelWithChannelId(gid)?.updateChatMemberPermissionStatus(userId, newStatus)
-        }
+        check(chatId < CHAT_ID_NEGATIVE_NOTATION) { "handleUpdateChatMember: chatId=$chatId is not a group" }
+        val gid = chatIdToGroupId(chatId)
+        val newStatus = obj["new_chat_member"].asJsonObject["status"].asJsonObject
+        server.getCachedGroupWithGroupId(gid)?.updateChatMemberPermissionStatus(userId, newStatus)
+        server.getCachedChannelWithChannelId(gid)?.updateChatMemberPermissionStatus(userId, newStatus)
+        val event = ChannelMemberStatusEvent.fromJsonObject(obj)
         for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
-            listener.onMemberStatusChanged(this, chatId, userId, event)
+            listener.onMemberStatusChanged(this, gid, userId, event)
         }
         return true
     }
@@ -586,8 +535,10 @@ class Bot internal constructor(
     private fun handleUpdateNewChatJoinRequest(event: JsonObject): Boolean {
         val chatId = event.get("chat_id").asLong
         val userId = event.get("request").asJsonObject.get("user_id").asLong
+        val groupId = SessionInfo.chatIdToGroupId(chatId)
+        val request = ChatJoinRequest.fromJsonObject(ChatJoinRequest::class.java, event.get("request").asJsonObject)
         for (listener in synchronized(mListenerLock) { mGroupMemberJoinRequestListenerV1.toList() }) {
-            listener.onMemberJoinRequest(this, chatId, userId, event)
+            listener.onMemberJoinRequest(this, groupId, userId, request)
         }
         return true
     }
@@ -598,7 +549,7 @@ class Bot internal constructor(
                 obj.get("user_id").asLong
             }
             "messageSenderChat" -> {
-                obj.get("chat_id").asLong
+                -SessionInfo.chatIdToChannelId(obj.get("chat_id").asLong)
             }
             else -> {
                 error("unexpected sender type: $type")
@@ -613,13 +564,12 @@ class Bot internal constructor(
     }
 
     private fun updateChatInfo(chat: JsonObject): JsonObject {
-        TlRpcJsonObject.checkTypeNonNull(chat, "chat")
+        BaseTlRpcJsonObject.checkTypeNonNull(chat, "chat")
         val chatId = chat.get("id").asLong
         val name = chat.get("title").asString
         val typeImpl = chat["type"].asJsonObject
         when (val chatType = typeImpl.get("@type").asString) {
-            "chatTypeSupergroup",
-            "chatTypeBasicGroup" -> {
+            "chatTypeSupergroup", "chatTypeBasicGroup" -> {
                 val isChannel = chatType == "chatTypeSupergroup" && typeImpl.get("is_channel").asBoolean
                 if (isChannel) {
                     updateChannelFromChat(chat)
@@ -640,7 +590,7 @@ class Bot internal constructor(
     }
 
     private fun updateGroupFromChat(chatObj: JsonObject): Group {
-        TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        BaseTlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
         val chatType = chatObj.get("type").asJsonObject.get("@type").asString
         val chatId = chatObj.get("id").asLong
         val name = chatObj.get("title").asString
@@ -679,12 +629,12 @@ class Bot internal constructor(
     }
 
     private fun updateChannelFromChat(chatObj: JsonObject): Channel {
-        TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        BaseTlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
         val chatId = chatObj.get("id").asLong
         val name = chatObj.get("title").asString
         val typeImpl = chatObj["type"].asJsonObject
         // channel should be a supergroup
-        TlRpcJsonObject.checkTypeNonNull(typeImpl, "chatTypeSupergroup")
+        BaseTlRpcJsonObject.checkTypeNonNull(typeImpl, "chatTypeSupergroup")
         check(typeImpl["is_channel"].asBoolean == true) { "updateChannelFromChat: supergroup is not a channel" }
         val gid = typeImpl["supergroup_id"].asLong
         if (chatId != -gid + CHAT_ID_NEGATIVE_NOTATION) {
@@ -740,8 +690,7 @@ class Bot internal constructor(
                                 Log.e(TAG, "Unexpected result checking authentication bot token: $result")
                                 mAuthState = AuthState.INVALID_CREDENTIALS
                                 notifyAuthorizationResult(
-                                    false,
-                                    "Unexpected result checking authentication bot token: $result"
+                                    false, "Unexpected result checking authentication bot token: $result"
                                 )
                             }
                             return@executeRawRequestAsync true
@@ -776,8 +725,7 @@ class Bot internal constructor(
                                 Log.e(TAG, "Unexpected result setting authentication phone number: $result")
                                 mAuthState = AuthState.INVALID_CREDENTIALS
                                 notifyAuthorizationResult(
-                                    false,
-                                    "Unexpected result setting authentication phone number: $result"
+                                    false, "Unexpected result setting authentication phone number: $result"
                                 )
                             }
                             return@executeRawRequestAsync true
@@ -918,37 +866,37 @@ class Bot internal constructor(
         }
     }
 
-    fun registerGroupEventListener(listener: EventHandler.GroupPermissionListenerV1) {
+    fun registerGroupEventListener(listener: EventHandler.GroupPermissionListenerV2) {
         synchronized(mListenerLock) {
             mOnGroupEventListeners.add(listener)
         }
     }
 
-    fun unregisterGroupEventListener(listener: EventHandler.GroupPermissionListenerV1) {
+    fun unregisterGroupEventListener(listener: EventHandler.GroupPermissionListenerV2) {
         synchronized(mListenerLock) {
             mOnGroupEventListeners.remove(listener)
         }
     }
 
-    fun registerCallbackQueryListener(listener: EventHandler.CallbackQueryListenerV1) {
+    fun registerCallbackQueryListener(listener: EventHandler.CallbackQueryListenerV2) {
         synchronized(mListenerLock) {
             mCallbackQueryListeners.add(listener)
         }
     }
 
-    fun unregisterCallbackQueryListener(listener: EventHandler.CallbackQueryListenerV1) {
+    fun unregisterCallbackQueryListener(listener: EventHandler.CallbackQueryListenerV2) {
         synchronized(mListenerLock) {
             mCallbackQueryListeners.remove(listener)
         }
     }
 
-    fun registerGroupMemberJoinRequestListenerV1(listener: EventHandler.GroupMemberJoinRequestListenerV1) {
+    fun registerGroupMemberJoinRequestListenerV1(listener: EventHandler.GroupMemberJoinRequestListenerV2) {
         synchronized(mListenerLock) {
             mGroupMemberJoinRequestListenerV1.add(listener)
         }
     }
 
-    fun unregisterGroupMemberJoinRequestListenerV1(listener: EventHandler.GroupMemberJoinRequestListenerV1) {
+    fun unregisterGroupMemberJoinRequestListenerV1(listener: EventHandler.GroupMemberJoinRequestListenerV2) {
         synchronized(mListenerLock) {
             mGroupMemberJoinRequestListenerV1.remove(listener)
         }
@@ -970,11 +918,14 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun sendMessageRawEx(
-        chatId: Long, inputMessageContent: JsonObject,
+        si: SessionInfo,
+        inputMessageContent: JsonObject,
         replyMarkup: ReplyMarkup? = null,
-        msgThreadId: Long = 0, replyMsgId: Long = 0,
+        msgThreadId: Long = 0,
+        replyMsgId: Long = 0,
         options: JsonObject? = null
     ): Message {
+        val chatId = si.toTDLibChatId()
         val request = JsonObject().apply {
             addProperty("@type", "sendMessage")
             addProperty("chat_id", chatId)
@@ -987,7 +938,7 @@ class Bot internal constructor(
         val until = System.currentTimeMillis() + server.defaultTimeout
         val obj = executeRequest(request.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing sendMessage")
-        TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+        BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
         val oldMsg: Message
         try {
             oldMsg = Message.fromJsonObject(obj)
@@ -1032,23 +983,31 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun sendMessageForText(
-        chatId: Long, text: String,
+        si: SessionInfo,
+        text: String,
         replyMarkup: ReplyMarkup? = null,
         disableWebPreview: Boolean = false,
-        msgThreadId: Long = 0, replyMsgId: Long = 0
+        msgThreadId: Long = 0,
+        replyMsgId: Long = 0
     ): Message {
         return sendMessageForText(
-            chatId, FormattedText.forPlainText(text), replyMarkup, disableWebPreview,
-            msgThreadId = msgThreadId, replyMsgId = replyMsgId
+            si,
+            FormattedText.forPlainText(text),
+            replyMarkup,
+            disableWebPreview,
+            msgThreadId = msgThreadId,
+            replyMsgId = replyMsgId
         )
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun sendMessageForText(
-        chatId: Long, textMsg: FormattedText,
+        si: SessionInfo,
+        textMsg: FormattedText,
         replyMarkup: ReplyMarkup? = null,
         disableWebPreview: Boolean = true,
-        msgThreadId: Long = 0, replyMsgId: Long = 0,
+        msgThreadId: Long = 0,
+        replyMsgId: Long = 0,
         options: JsonObject? = null
     ): Message {
         val msgObj = JsonObject().apply {
@@ -1057,27 +1016,34 @@ class Bot internal constructor(
             addProperty("disable_web_page_preview", disableWebPreview)
             addProperty("clear_draft", false)
         }
-        return sendMessageRawEx(chatId, msgObj, replyMarkup, msgThreadId, replyMsgId, options)
+        return sendMessageRawEx(si, msgObj, replyMarkup, msgThreadId, replyMsgId, options)
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun sendMessageForPhoto(
-        chatId: Long, file: File, caption: String,
-        replyMarkup: ReplyMarkup? = null, ttl: Int = 0,
-        msgThreadId: Long = 0, replyMsgId: Long = 0,
+        si: SessionInfo,
+        file: File,
+        caption: String,
+        replyMarkup: ReplyMarkup? = null,
+        ttl: Int = 0,
+        msgThreadId: Long = 0,
+        replyMsgId: Long = 0,
         options: JsonObject? = null
     ): Message {
         return sendMessageForPhoto(
-            chatId, file, FormattedText.forPlainText(caption), replyMarkup,
-            ttl, msgThreadId, replyMsgId, options
+            si, file, FormattedText.forPlainText(caption), replyMarkup, ttl, msgThreadId, replyMsgId, options
         )
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun sendMessageForPhoto(
-        chatId: Long, file: File, caption: FormattedText?,
-        replyMarkup: ReplyMarkup? = null, ttl: Int = 0,
-        msgThreadId: Long = 0, replyMsgId: Long = 0,
+        si: SessionInfo,
+        file: File,
+        caption: FormattedText?,
+        replyMarkup: ReplyMarkup? = null,
+        ttl: Int = 0,
+        msgThreadId: Long = 0,
+        replyMsgId: Long = 0,
         options: JsonObject? = null
     ): Message {
         val inputFile = InputFile.fromLocalFileToJsonObject(file)
@@ -1099,18 +1065,16 @@ class Bot internal constructor(
             add("caption", caption?.toJsonObject())
             addProperty("ttl", ttl)
         }
-        return sendMessageRawEx(chatId, msgObj, replyMarkup, msgThreadId, replyMsgId, options)
+        return sendMessageRawEx(si, msgObj, replyMarkup, msgThreadId, replyMsgId, options)
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun editMessageCaption(
-        chatId: Long, msgId: Long,
-        caption: FormattedText,
-        replyMarkup: ReplyMarkup? = null
+        si: SessionInfo, msgId: Long, caption: FormattedText, replyMarkup: ReplyMarkup? = null
     ): JsonObject {
         JsonObject().apply {
             addProperty("@type", "editMessageCaption")
-            addProperty("chat_id", chatId)
+            addProperty("chat_id", si.toTDLibChatId())
             addProperty("message_id", msgId)
             add("caption", caption.toJsonObject())
             add("reply_markup", replyMarkup?.toJsonObject())
@@ -1119,7 +1083,7 @@ class Bot internal constructor(
             if (obj == null) {
                 throw IOException("Timeout")
             } else {
-                TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+                BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
                 return obj
             }
         }
@@ -1127,12 +1091,12 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun deleteMessages(
-        chatId: Long, msgIds: Array<Long>
+        si: SessionInfo, msgIds: Array<Long>
     ): JsonObject {
         require(msgIds.isNotEmpty()) { "msgIds is empty" }
         JsonObject().apply {
             addProperty("@type", "deleteMessages")
-            addProperty("chat_id", chatId)
+            addProperty("chat_id", si.toTDLibChatId())
             add("message_ids", JsonArray().apply {
                 msgIds.forEach { add(it) }
             })
@@ -1142,7 +1106,7 @@ class Bot internal constructor(
             if (obj == null) {
                 throw IOException("Timeout")
             } else {
-                TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+                BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
                 return obj
             }
         }
@@ -1150,28 +1114,26 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun deleteMessages(
-        chatId: Long, msgIds: List<Long>
+        si: SessionInfo, msgIds: List<Long>
     ): JsonObject {
-        return deleteMessages(chatId, msgIds.toTypedArray())
+        return deleteMessages(si, msgIds.toTypedArray())
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun deleteMessage(
-        chatId: Long, msgId: Long
+        si: SessionInfo, msgId: Long
     ): JsonObject {
-        return deleteMessages(chatId, arrayOf(msgId))
+        return deleteMessages(si, arrayOf(msgId))
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun editMessageTextEx(
-        chatId: Long, msgId: Long,
-        inputMessageContent: JsonObject,
-        replyMarkup: ReplyMarkup? = null
+        si: SessionInfo, msgId: Long, inputMessageContent: JsonObject, replyMarkup: ReplyMarkup? = null
     ): JsonObject {
-        TlRpcJsonObject.checkTypeNonNull(inputMessageContent, "inputMessageText")
+        BaseTlRpcJsonObject.checkTypeNonNull(inputMessageContent, "inputMessageText")
         JsonObject().apply {
             addProperty("@type", "editMessageText")
-            addProperty("chat_id", chatId)
+            addProperty("chat_id", si.toTDLibChatId())
             addProperty("message_id", msgId)
             add("input_message_content", inputMessageContent)
             add("reply_markup", replyMarkup?.toJsonObject())
@@ -1180,7 +1142,7 @@ class Bot internal constructor(
             if (obj == null) {
                 throw IOException("Timeout")
             } else {
-                TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+                BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
                 return obj
             }
         }
@@ -1188,27 +1150,25 @@ class Bot internal constructor(
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun editMessageText(
-        chatId: Long, msgId: Long,
+        si: SessionInfo,
+        msgId: Long,
         formattedText: FormattedText,
         replyMarkup: ReplyMarkup? = null,
         disableWebPreview: Boolean = true
     ): JsonObject {
         return editMessageTextEx(
-            chatId, msgId,
-            JsonObject().apply {
+            si, msgId, JsonObject().apply {
                 addProperty("@type", "inputMessageText")
                 add("text", formattedText.toJsonObject())
                 addProperty("disable_web_page_preview", disableWebPreview)
                 addProperty("clear_draft", false)
-            },
-            replyMarkup
+            }, replyMarkup
         )
     }
 
     @Throws(RemoteApiException::class, IOException::class)
     suspend fun answerCallbackQuery(
-        queryId: String, text: String?, showAlert: Boolean,
-        url: String? = null, cacheTime: Int = 0
+        queryId: Long, text: String?, showAlert: Boolean, url: String? = null, cacheTime: Int = 0
     ) {
         val request = JsonObject().apply {
             addProperty("@type", "answerCallbackQuery")
@@ -1222,22 +1182,22 @@ class Bot internal constructor(
         if (obj == null) {
             throw IOException("Timeout")
         } else {
-            TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+            BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
         }
     }
 
     @Throws(RemoteApiException::class, IOException::class)
-    suspend fun getMessage(chatId: Long, msgId: Long, invalidate: Boolean = false): Message {
+    suspend fun getMessage(si: SessionInfo, msgId: Long, invalidate: Boolean = false): Message {
         val request = JsonObject().apply {
             addProperty("@type", "getMessage")
-            addProperty("chat_id", chatId)
+            addProperty("chat_id", si.toTDLibChatId())
             addProperty("message_id", msgId)
         }
         val obj = executeRequest(request.toString(), server.defaultTimeout)
         if (obj == null) {
             throw IOException("Timeout executing getMessage request")
         } else {
-            TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+            BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
             return Message.fromJsonObject(obj)
         }
     }
@@ -1259,7 +1219,7 @@ class Bot internal constructor(
         if (obj == null) {
             throw IOException("Timeout executing getUser request")
         } else {
-            TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+            BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
             return updateUserInfo(obj)
         }
     }
@@ -1281,8 +1241,8 @@ class Bot internal constructor(
         }
         val chatObj = executeRequest(request1.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing getChat request")
-        TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
-        TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
+        BaseTlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
         return when (val chatType = chatObj.get("type").asJsonObject.get("@type").asString) {
             "chatTypeBasicGroup" -> {
                 updateGroupFromChat(chatObj)
@@ -1309,8 +1269,8 @@ class Bot internal constructor(
         }
         val obj = executeRequest(request.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing getChat request")
-        TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
-        TlRpcJsonObject.checkTypeNonNull(obj, "chat")
+        BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+        BaseTlRpcJsonObject.checkTypeNonNull(obj, "chat")
         return updateChannelFromChat(obj)
     }
 
@@ -1323,8 +1283,8 @@ class Bot internal constructor(
         }
         val chatObj = executeRequest(request1.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing getChat request")
-        TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
-        TlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
+        BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
+        BaseTlRpcJsonObject.checkTypeNonNull(chatObj, "chat")
         return chatObj
     }
 
@@ -1342,18 +1302,18 @@ class Bot internal constructor(
         }
         val chatObj = executeRequest(request1.toString(), server.defaultTimeout)
             ?: throw IOException("Timeout executing getChatMember request")
-        TlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
-        TlRpcJsonObject.checkTypeNonNull(chatObj, "chatMember")
+        BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(chatObj)
+        BaseTlRpcJsonObject.checkTypeNonNull(chatObj, "chatMember")
         return chatObj
     }
 
     @Throws(RemoteApiException::class, IOException::class)
-    suspend fun processChatJoinRequest(chatId: Long, userId: Long, approve: Boolean) {
-        require(chatId < CHAT_ID_NEGATIVE_NOTATION) { "chatId $chatId is not a valid group chat id" }
+    suspend fun processChatJoinRequest(groupId: Long, userId: Long, approve: Boolean) {
+        require(groupId > 0) { "chatId $groupId is not a valid group id" }
         require(userId > 0) { "userId $userId is not a valid user id" }
         val request = JsonObject().apply {
             addProperty("@type", "processChatJoinRequest")
-            addProperty("chat_id", chatId)
+            addProperty("chat_id", SessionInfo.groupIdToChatId(groupId))
             addProperty("user_id", userId)
             addProperty("approve", approve)
         }
@@ -1361,7 +1321,7 @@ class Bot internal constructor(
         if (obj == null) {
             throw IOException("Timeout executing processChatJoinRequest request")
         } else {
-            TlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
+            BaseTlRpcJsonObject.throwRemoteApiExceptionIfError(obj)
         }
     }
 
