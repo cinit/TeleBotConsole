@@ -506,28 +506,27 @@ class Bot internal constructor(
     }
 
     private fun handleUpdateChatMember(obj: JsonObject): Boolean {
-        val chatId = obj.get("chat_id").asLong
+        val groupId = SessionInfo.chatIdToGroupId(obj.get("chat_id").asLong)
         val memberObj = obj["new_chat_member"].asJsonObject
         val userId = when (val memberType = memberObj["member_id"].asJsonObject["@type"].asString) {
             "messageSenderUser" -> {
                 memberObj["member_id"].asJsonObject["user_id"].asLong
             }
             "messageSenderChat" -> {
-                memberObj["member_id"].asJsonObject["chat_id"].asLong
+                -SessionInfo.chatIdToChannelId(memberObj["member_id"].asJsonObject["chat_id"].asLong)
             }
             else -> {
                 error("unknown member type $memberType")
             }
         }
-        check(userId > 0) { "handleUpdateChatMember: userId=$userId is not positive" }
-        check(chatId < CHAT_ID_NEGATIVE_NOTATION) { "handleUpdateChatMember: chatId=$chatId is not a group" }
-        val gid = chatIdToGroupId(chatId)
+        check(userId != 0L) { "handleUpdateChatMember: userId=$userId is invalid" }
+        check(groupId > 0) { "handleUpdateChatMember: groupId=$groupId is not a group" }
         val newStatus = obj["new_chat_member"].asJsonObject["status"].asJsonObject
-        server.getCachedGroupWithGroupId(gid)?.updateChatMemberPermissionStatus(userId, newStatus)
-        server.getCachedChannelWithChannelId(gid)?.updateChatMemberPermissionStatus(userId, newStatus)
+        server.getCachedGroupWithGroupId(groupId)?.updateChatMemberPermissionStatus(userId, newStatus)
+        server.getCachedChannelWithChannelId(groupId)?.updateChatMemberPermissionStatus(userId, newStatus)
         val event = ChannelMemberStatusEvent.fromJsonObject(obj)
         for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
-            listener.onMemberStatusChanged(this, gid, userId, event)
+            listener.onMemberStatusChanged(this, groupId, userId, event)
         }
         return true
     }
