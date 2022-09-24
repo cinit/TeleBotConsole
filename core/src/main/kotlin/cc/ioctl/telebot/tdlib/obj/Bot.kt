@@ -264,8 +264,8 @@ class Bot internal constructor(
     private fun handleUpdateChatPermissions(obj: JsonObject): Boolean {
         val chatId = obj.get("chat_id").asLong
         val permissions = obj.get("permissions").asJsonObject
-        check(chatId < CHAT_ID_NEGATIVE_NOTATION) { "handleUpdateChatMember: chatId=$chatId is not a group" }
-        val gid = chatIdToGroupId(chatId)
+        check(chatId < 0) { "handleUpdateChatMember: chatId=$chatId is not a group" }
+        val gid = if (chatId < CHAT_ID_NEGATIVE_NOTATION) chatIdToGroupId(chatId) else -chatId
         val perm = ChatPermissions.fromJsonObject(ChatPermissions::class.java, permissions)
         Log.d(TAG, "handleUpdateChatPermissions: gid: $gid, permissions: $permissions")
         for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
@@ -506,29 +506,36 @@ class Bot internal constructor(
     }
 
     private fun handleUpdateChatMember(obj: JsonObject): Boolean {
-        val groupId = SessionInfo.chatIdToGroupId(obj.get("chat_id").asLong)
-        val memberObj = obj["new_chat_member"].asJsonObject
-        val userId = when (val memberType = memberObj["member_id"].asJsonObject["@type"].asString) {
-            "messageSenderUser" -> {
-                memberObj["member_id"].asJsonObject["user_id"].asLong
+        val chatId = obj.get("chat_id").asLong
+        if (chatId < 0) {
+            val groupId = SessionInfo.chatIdToGroupId(chatId)
+            val memberObj = obj["new_chat_member"].asJsonObject
+            val userId = when (val memberType = memberObj["member_id"].asJsonObject["@type"].asString) {
+                "messageSenderUser" -> {
+                    memberObj["member_id"].asJsonObject["user_id"].asLong
+                }
+                "messageSenderChat" -> {
+                    -SessionInfo.chatIdToChannelId(memberObj["member_id"].asJsonObject["chat_id"].asLong)
+                }
+                else -> {
+                    error("unknown member type $memberType")
+                }
             }
-            "messageSenderChat" -> {
-                -SessionInfo.chatIdToChannelId(memberObj["member_id"].asJsonObject["chat_id"].asLong)
+            check(userId != 0L) { "handleUpdateChatMember: userId=$userId is invalid" }
+            check(groupId > 0) { "handleUpdateChatMember: groupId=$groupId is not a group" }
+            val newStatus = obj["new_chat_member"].asJsonObject["status"].asJsonObject
+            server.getCachedGroupWithGroupId(groupId)?.updateChatMemberPermissionStatus(userId, newStatus)
+            server.getCachedChannelWithChannelId(groupId)?.updateChatMemberPermissionStatus(userId, newStatus)
+            val event = ChannelMemberStatusEvent.fromJsonObject(obj)
+            for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
+                listener.onMemberStatusChanged(this, groupId, userId, event)
             }
-            else -> {
-                error("unknown member type $memberType")
-            }
+            return true
+        } else {
+            val userId = chatId
+            Log.i(TAG, obj.toString())
+            return true
         }
-        check(userId != 0L) { "handleUpdateChatMember: userId=$userId is invalid" }
-        check(groupId > 0) { "handleUpdateChatMember: groupId=$groupId is not a group" }
-        val newStatus = obj["new_chat_member"].asJsonObject["status"].asJsonObject
-        server.getCachedGroupWithGroupId(groupId)?.updateChatMemberPermissionStatus(userId, newStatus)
-        server.getCachedChannelWithChannelId(groupId)?.updateChatMemberPermissionStatus(userId, newStatus)
-        val event = ChannelMemberStatusEvent.fromJsonObject(obj)
-        for (listener in synchronized(mListenerLock) { mOnGroupEventListeners.toList() }) {
-            listener.onMemberStatusChanged(this, groupId, userId, event)
-        }
-        return true
     }
 
     private fun handleUpdateNewChatJoinRequest(event: JsonObject): Boolean {
