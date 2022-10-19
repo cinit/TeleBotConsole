@@ -99,6 +99,7 @@ public class StartupRoutine {
             System.load(nativeLib.getAbsolutePath());
         }
         System.out.println("Process ID: " + OsUtils.getPid());
+        System.out.println("os.name: " + System.getProperty("os.name") + ", java.runtime.name: " + System.getProperty("java.runtime.name"));
         NativeBridge.nativeInit(workingDir.getAbsolutePath());
         // initialize mmkv
         File mmkvDir = new File(workingDir, "mmkv");
@@ -115,7 +116,16 @@ public class StartupRoutine {
         Console console = Console.getInstance();
         Log.setLogHandler(console);
         Log.d("StartupRoutine", "StartupRoutine started");
+        // Load native libs
         org.jetbrains.skija.impl.Library.staticLoad();
+        // We are not likely to be on Android...
+        try {
+            // init SQLite
+            Class.forName(org.sqlite.JDBC.class.getName(), true, org.sqlite.JDBC.class.getClassLoader());
+            org.sqlite.core.NativeDB.load();
+        } catch (Exception e) {
+            IoUtils.unsafeThrow(e);
+        }
         // initialize robot server
         RobotServer server = RobotServer.createInstance(workingDir);
         ServerInit.runServer(server, socketProxy);
