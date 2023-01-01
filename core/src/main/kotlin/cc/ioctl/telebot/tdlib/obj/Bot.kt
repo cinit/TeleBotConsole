@@ -206,7 +206,9 @@ class Bot internal constructor(
             "updateChatPhoto" -> {
                 handleUpdateChatPhoto(event)
             }
-            "updateSelectedBackground", "updateFileDownloads", "updateChatThemes", "updateDiceEmojis", "updateAnimationSearchParameters", "updateRecentStickers", "updateReactions", "updateChatPosition" -> {
+            "updateSelectedBackground", "updateFileDownloads",
+            "updateChatThemes", "updateDiceEmojis", "updateDefaultReactionType",
+            "updateAnimationSearchParameters", "updateRecentStickers", "updateReactions", "updateChatPosition" -> {
                 // ignore
                 true
             }
