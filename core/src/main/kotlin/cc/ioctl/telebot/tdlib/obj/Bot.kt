@@ -293,7 +293,7 @@ class Bot internal constructor(
         val uid = userObj.get("id").asLong
         val firstName = userObj.get("first_name").asString
         val lastName = userObj.get("last_name").asString
-        val username = userObj["usernames"].asJsonObject["active_usernames"].asJsonArray.firstOrNull()?.asString
+        val username = userObj.getAsJsonObject("usernames")?.getAsJsonArray("active_usernames")?.firstOrNull()?.asString
         val phoneNumber = userObj.get("phone_number").asString
         val languageCode = userObj.get("language_code").asString
         val user = server.getOrNewUser(uid, this)
