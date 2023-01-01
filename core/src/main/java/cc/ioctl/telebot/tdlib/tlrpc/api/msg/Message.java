@@ -98,12 +98,6 @@ public class Message extends BaseTlRpcJsonObject {
     @TlRpcField("message_thread_id")
     public long messageThreadId;
 
-    @TlRpcField("ttl")
-    public int ttl;
-
-    @TlRpcField("ttl_expires_in")
-    public int ttlExpiresIn;
-
     @TlRpcField("via_bot_user_id")
     public long viaBotUserId;
 

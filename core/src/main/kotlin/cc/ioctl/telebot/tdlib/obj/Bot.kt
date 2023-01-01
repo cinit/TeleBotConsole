@@ -222,10 +222,10 @@ class Bot internal constructor(
             "updateSupergroup" -> {
                 val supergroup = event.getAsJsonObject("supergroup")
                 val uid = supergroup.get("id").asLong
-                val username = supergroup.get("username").asString
+                //val username = supergroup.get("username").asString
                 val group = server.getOrNewGroup(uid, this)
                 group.isSuperGroup = true
-                group.username = username.ifEmpty { null }
+                //group.username = username.ifEmpty { null }
                 return true
             }
             "updateBasicGroup" -> {
@@ -291,13 +291,13 @@ class Bot internal constructor(
         val uid = userObj.get("id").asLong
         val firstName = userObj.get("first_name").asString
         val lastName = userObj.get("last_name").asString
-        val username = userObj.get("username").asString
+        val username = userObj["usernames"].asJsonObject["active_usernames"].asJsonArray.firstOrNull()?.asString
         val phoneNumber = userObj.get("phone_number").asString
         val languageCode = userObj.get("language_code").asString
         val user = server.getOrNewUser(uid, this)
         user.firstName = firstName
         user.lastName = lastName.ifEmpty { null }
-        user.username = username.ifEmpty { null }
+        user.username = username?.ifEmpty { null }
         if (phoneNumber.isNotEmpty()) {
             user.phoneNumber = null
         }
@@ -309,14 +309,14 @@ class Bot internal constructor(
             this.firstName = firstName
             this.lastName = lastName.ifEmpty { null }
             this.phoneNumber = phoneNumber.ifEmpty { null }
-            this.username = username.ifEmpty { null }
+            this.username = username?.ifEmpty { null }
         }
         // check whether uid match local bot
         server.getBotWithUserId(uid)?.let { that ->
             that.firstName = firstName
             that.lastName = lastName.ifEmpty { null }
             that.phoneNumber = phoneNumber.ifEmpty { null }
-            that.username = username.ifEmpty { null }
+            that.username = username?.ifEmpty { null }
         }
         return user
     }
@@ -787,9 +787,8 @@ class Bot internal constructor(
     private suspend fun sendTdLibParameters() {
         val param = SetTdlibParameters.Parameter(server.defaultTDLibParametersTemplate)
         param.databaseDirectory = mDataBaseDir.absolutePath
-        val request = JsonObject()
+        val request = param.toJsonObject()
         request.addProperty("@type", "setTdlibParameters")
-        request.add("parameters", param.toJsonObject())
         executeRequestWaitExpectSuccess(request.toString(), 1000)
     }
 
