@@ -44,6 +44,7 @@ class RobotServer private constructor(val baseDir: File) {
     private val mSequence: AtomicLong = AtomicLong(1)
     private val mLocalBots: HashMap<Int, Bot> = HashMap(1)
     private val mLocalBotUidMaps: HashMap<Long, Int> = HashMap(1)
+    var exceptionHandler: ExceptionHandler? = null
 
     fun start(apiId: Int, apiHash: String, useTestDC: Boolean) {
         require(apiId > 0) { "apiId must be greater than 0" }
@@ -74,6 +75,9 @@ class RobotServer private constructor(val baseDir: File) {
             )
             mPollThread = TDLibPollThread(this@RobotServer).also { it.start() }
         }
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            exceptionHandler?.onException(e, t)
+        }
     }
 
     fun onReceiveTDLibEvent(resp: String) {
@@ -86,6 +90,7 @@ class RobotServer private constructor(val baseDir: File) {
                 try {
                     TransactionDispatcher.dispatchTDLibEvent(this@RobotServer, resp)
                 } catch (e: Exception) {
+                    exceptionHandler?.onException(e, Thread.currentThread())
                     Log.e(TAG, "onReceiveTDLibEvent error for $resp", e)
                 }
             }
@@ -345,4 +350,9 @@ class RobotServer private constructor(val baseDir: File) {
         val instance: RobotServer
             get() = sInstance ?: error("RobotServer is not initialized")
     }
+
+    interface ExceptionHandler {
+        fun onException(e: Throwable, t: Thread)
+    }
+
 }

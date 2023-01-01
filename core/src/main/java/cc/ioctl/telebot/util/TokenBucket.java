@@ -69,6 +69,10 @@ public class TokenBucket<T> {
         return consume(key, 1);
     }
 
+    public boolean tryConsume(@NotNull T key) {
+        return consume(key) > 0;
+    }
+
     public void reset() {
         entries.clear();
     }
