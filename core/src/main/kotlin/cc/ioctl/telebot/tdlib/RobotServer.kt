@@ -15,14 +15,18 @@ import cc.ioctl.telebot.util.IoUtils
 import cc.ioctl.telebot.util.Log
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.coroutines.CoroutineContext
 
 class RobotServer private constructor(val baseDir: File) {
 
@@ -34,6 +38,7 @@ class RobotServer private constructor(val baseDir: File) {
     var defaultTimeout: Int = 30 * 1000
     val cachedObjectPool: NonLocalObjectCachePool = NonLocalObjectCachePool(this)
     val executor: ExecutorService = Executors.newCachedThreadPool()
+    val mDelayedTaskExecutor = Executors.newScheduledThreadPool(4)
 
     private val mLock = Any()
     private lateinit var mPollThread: Thread
@@ -353,6 +358,24 @@ class RobotServer private constructor(val baseDir: File) {
 
     interface ExceptionHandler {
         fun onException(e: Throwable, t: Thread)
+    }
+
+    fun scheduleTaskDelayed(milliseconds: Long, task: Runnable) {
+        mDelayedTaskExecutor.schedule(task, milliseconds, TimeUnit.MILLISECONDS)
+    }
+
+    fun scheduleTaskDelayedWithContext(
+        context: CoroutineContext,
+        milliseconds: Long,
+        task: suspend CoroutineScope.() -> Unit
+    ) {
+        mDelayedTaskExecutor.schedule({
+            runBlocking {
+                withContext(context) {
+                    task()
+                }
+            }
+        }, milliseconds, TimeUnit.MILLISECONDS)
     }
 
 }

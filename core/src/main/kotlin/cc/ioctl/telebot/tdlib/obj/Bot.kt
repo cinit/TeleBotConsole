@@ -22,6 +22,7 @@ import cc.ioctl.telebot.util.IoUtils
 import cc.ioctl.telebot.util.Log
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
@@ -31,6 +32,7 @@ import kotlinx.coroutines.withTimeout
 import org.jetbrains.skija.Image
 import java.io.File
 import java.io.IOException
+import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration.Companion.milliseconds
 
 class Bot internal constructor(
@@ -1355,5 +1357,17 @@ class Bot internal constructor(
         other as Bot
         if (clientIndex != other.clientIndex) return false
         return true
+    }
+
+    fun scheduleTaskDelayed(milliseconds: Long, task: Runnable) {
+        server.scheduleTaskDelayed(milliseconds, task)
+    }
+
+    fun scheduleTaskDelayedWithContext(
+        context: CoroutineContext,
+        milliseconds: Long,
+        task: suspend CoroutineScope.() -> Unit
+    ) {
+        server.scheduleTaskDelayedWithContext(context, milliseconds, task)
     }
 }
