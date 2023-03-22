@@ -57,7 +57,11 @@ data class SessionInfo(
         @JvmStatic
         fun groupIdToChatId(groupId: Long): Long {
             require(groupId > 0) { "groupId $groupId is not a group chat id" }
-            return -groupId + CHAT_ID_NEGATIVE_NOTATION
+            return if (groupId < 1000000000L) {
+                -groupId
+            } else {
+                -groupId + CHAT_ID_NEGATIVE_NOTATION
+            }
         }
 
         @JvmStatic

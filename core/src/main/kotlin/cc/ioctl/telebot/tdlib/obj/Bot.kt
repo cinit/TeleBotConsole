@@ -623,8 +623,8 @@ class Bot internal constructor(
             }
             "chatTypeBasicGroup" -> {
                 val gid = typeImpl["basic_group_id"].asLong
-                if (chatId != -gid + CHAT_ID_NEGATIVE_NOTATION) {
-                    throw AssertionError("chatId=$chatId, gid=$gid")
+                if (chatId != -gid) {
+                    throw AssertionError("chatTypeBasicGroup, chatId=$chatId, gid=$gid")
                 }
                 val group = server.getOrNewGroup(gid, this)
                 group.isSuperGroup = false
